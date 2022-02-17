@@ -1,0 +1,17 @@
+{
+  "name": "emscr-wasm-term",
+  "version": "0.0.4",
+  "description": "xterm.js addon to run emscripten webassembly binaries",
+  "main": "src/EmscrWasmTerm.js",
+  "keywords": [
+    "xterm.js", "emscripten", "wasm",
+    "webassembly", "js", "javascript"
+  ],
+  "author": "",
+  "license": "UNLICENSED",
+  "dependencies": {
+    "comlink": "^4.3.1",
+    "local-echo": "github:wavesoft/local-echo",
+    "xterm-addon-fit": "^0.5.0"
+  }
+}
