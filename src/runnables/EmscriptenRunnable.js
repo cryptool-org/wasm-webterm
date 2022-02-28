@@ -1,4 +1,4 @@
-class EmscrWasmExecutable {
+class EmscrWasmRunnable {
 
     /* method wrapper class for emscr wasm modules.
     loads emscripten js runtime and can execute wasm. */
@@ -8,26 +8,25 @@ class EmscrWasmExecutable {
 
     _emscrJsRuntime
 
-    constructor(programName, wasmModule, onJsRuntimeInit, emscrJsRuntimePath) { // todo: jsRuntimeModuleName
+    constructor(programName, wasmModule, onJsRuntimeInit, emscrJsRuntimePath) {
 
         this.programName = programName
         this.wasmModule = wasmModule
 
         this._loadEmscrJsRuntime(onJsRuntimeInit, emscrJsRuntimePath)
-        // todo? setTimeout(() => { this._loadEmscrJsRuntime(onJsRuntimeInit) }, 1)
 
     }
 
     /**
      * Executes given arguments (argv) on wasm module.
-     * onCommandFinished is called even if there are errors during execution.
+     * onFinish is called even if there are errors during execution.
      *
      * if stdinPreset (string) is set, it will be delivered instead of reading stdin
      * from terminal (this feature is used for piping and running headless commands)
      */
     run(argv, stdin, stdout, stderr, files, onFinish, onError, onSuccess, stdinPreset) {
 
-        console.log("emscr executable run:", this.programName, argv)
+        console.log("emscr runnable run:", this.programName, argv)
 
         // initialize default methods and values
         if(typeof stdin  != "function") stdin  = () => {}
@@ -80,36 +79,37 @@ class EmscrWasmExecutable {
         this._emscrJsRuntime(emscrModule).then(instance => { // emscr module instance
 
             // write submitted files to wasm
-            this._writeFilesToWasmFS(instance, files)
+            this._writeFilesToFS(instance, files)
 
             // execute command
             instance.callMain(argv)
 
             // read created files from wasm
-            filesPostRun = this._readFilesFromWasmFS(instance)
+            filesPostRun = this._readFilesFromFS(instance)
 
             // success callback
             onSuccess(filesPostRun)
 
-        }).catch(error => onError(error)).finally(() => onFinish(filesPostRun))
+        })
+
+        .catch(error => onError(error))
+        .finally(() => onFinish(filesPostRun || files))
 
     }
 
     /**
      * Executes a command without command line input/output.
-     * It runs the command and returns all outputs in onSuccess.
+     * It runs the command and returns all outputs in onFinish.
      *
      * --> only supports commands that do not ask for CLI input
      * --> stdin can be preset by passing string as stdinPreset
      */
     runHeadless(argv, files, onFinish, onError, onSuccess, stdinPreset) {
 
-        console.log("emscr executable run headless:", this.programName, argv)
+        console.log("emscr runnable run headless:", this.programName, argv)
 
-        // initialize default callbacks
+        // initialize default callback
         if(typeof onFinish  != "function") onFinish  = () => {}
-        if(typeof onError   != "function") onError   = (e) => { console.error(e) }
-        if(typeof onSuccess != "function") onSuccess = () => {}
 
         // stdin is not needed
         const stdin = () => { console.log("called runHeadless stdin") }
@@ -129,7 +129,7 @@ class EmscrWasmExecutable {
 
     /* file handling */
 
-    _readFilesFromWasmFS(instance, directory = "/", includeBinary = true, filesToIgnore = []) {
+    _readFilesFromFS(instance, directory = "/", includeBinary = true, filesToIgnore = []) {
         const path = instance.FS.lookupPath(directory)
         const getFilesFromNode = (parentNode) => { let files = []
             Object.values(parentNode.contents).forEach(node => {
@@ -152,13 +152,11 @@ class EmscrWasmExecutable {
         return files
     }
 
-    _writeFilesToWasmFS(instance, files = []) {
+    _writeFilesToFS(instance, files = []) {
         files.forEach(file => {
             try {
-                if(file.bytes instanceof Uint8Array) {
-                    // console.log("writing file:", file)
+                if(file.bytes instanceof Uint8Array)
                     instance.FS.writeFile(file.name, file.bytes)
-                }
             }
             catch(e) { console.error(e.name + ": " + e.message) }
         })
@@ -179,17 +177,26 @@ class EmscrWasmExecutable {
         if(this._isWorkerScope()) {
             importScripts(emscrJSRuntimeURL)
             this._emscrJsRuntime = self[emscrJsModuleName] || self["_createPyodideModule"]
-            setTimeout(onJsRuntimeInit, 1) // todo: vllt ne bessere lösung als den timeout finden?
+            setTimeout(onJsRuntimeInit, 1) // todo: find better solution for module names
         }
 
         // check if is in normal browser dom
         else if(typeof document != "undefined") {
+
+            // todo: error handling for when scripts have 404
+            // --> should be displayed on terminal -- how?
+
+            // if runtime is injected already -> callback immediatly
+            if(document.querySelector(`[src="${emscrJSRuntimeURL}"]`)) {
+                setTimeout(onJsRuntimeInit, 1); return }
+
             let script = document.createElement("script")
             script.type = "text/javascript"
             script.onload = () => {
                 this._emscrJsRuntime = window[emscrJsModuleName]
-                setTimeout(onJsRuntimeInit, 1) // todo: vllt ne bessere lösung als den timeout finden?
+                setTimeout(onJsRuntimeInit, 1)
             }
+            // script.onerror = (e) => { throw new Error("Failed to load emscr js runtime") }
             script.src = emscrJSRuntimeURL
             document.head.appendChild(script)
         }
@@ -204,4 +211,4 @@ class EmscrWasmExecutable {
 
 }
 
-export default EmscrWasmExecutable
+export default EmscrWasmRunnable

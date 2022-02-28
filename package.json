@@ -1,17 +1,37 @@
 {
-  "name": "emscr-wasm-term",
+  "name": "wasm-webterm",
   "version": "0.0.4",
-  "description": "xterm.js addon to run emscripten webassembly binaries",
-  "main": "src/EmscrWasmTerm.js",
+  "description": "xterm.js addon to run webassembly binaries (emscripten + wasmer)",
+  "main": "webterm.bundle.js",
+  "scripts": {
+    "build": "webpack --mode production && rm -rf ./*.LICENSE.*"
+  },
   "keywords": [
-    "xterm.js", "emscripten", "wasm",
-    "webassembly", "js", "javascript"
+    "xterm.js",
+    "emscripten",
+    "wasmer",
+    "wasi",
+    "wasm",
+    "webassembly",
+    "js",
+    "javascript"
   ],
   "author": "",
   "license": "UNLICENSED",
   "dependencies": {
+    "@wasmer/wasi": "^0.12.0",
+    "@wasmer/wasm-transformer": "^0.12.0",
+    "@wasmer/wasmfs": "^0.12.0",
     "comlink": "^4.3.1",
+    "js-untar": "^2.0.0",
     "local-echo": "github:wavesoft/local-echo",
+    "pako": "^2.0.4",
     "xterm-addon-fit": "^0.5.0"
+  },
+  "devDependencies": {
+    "memfs": "^3.4.1",
+    "process": "^0.11.10",
+    "webpack": "^5.69.1",
+    "webpack-cli": "^4.9.2"
   }
 }
