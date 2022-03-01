@@ -91,7 +91,7 @@ class WasmerRunnable {
         })
 
         // instantiate wasm module
-        const imports = wasi.getImports(this.wasmModule)
+        const imports = wasi.getImports(this.wasmModule) // WebAssembly.Module.imports(this.wasmModule)
         WebAssembly.instantiate(this.wasmModule, { ...imports }).then(instance => {
 
             let filesPostRun

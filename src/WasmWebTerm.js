@@ -22,6 +22,7 @@ class WasmWebTerm {
     _wasmModules
     _wasmFsFiles
 
+    _outputBuffer
     _lastOutputTime
 
     onActivated
@@ -32,18 +33,18 @@ class WasmWebTerm {
     onCommandRunFinish
 
 
-    constructor({ emscrWasmBinaryPath = "/bin", emscrJsRuntimePath = emscrWasmBinaryPath }) {
+    constructor(wasmBinaryPath) {
 
-        this._emscrWasmBinaryPath = emscrWasmBinaryPath // path for .wasm files
-        this._emscrJsRuntimePath = emscrJsRuntimePath // path for .js files
+        this.wasmBinaryPath = wasmBinaryPath
 
         this._commands = new Map() // contains commands and their callback functions
         this.isRunningCommand = false // allow running only 1 command in parallel
 
         this._worker = false // fallback (do not use worker until it is initialized)
-        this._wasmModules = [] // [{ name: "openssl", type: "emscripten|wasmer" module: WebAssembly.Module }]
+        this._wasmModules = [] // [{ name: "openssl", type: "emscripten|wasmer", module: WebAssembly.Module, runtime: [optional] }]
         this._wasmFsFiles = [] // files created during execution (will be written to FS)
 
+        this._outputBuffer = "" // buffers outputs to determine if it ended with line break
         this._lastOutputTime = 0 // can be used for guessing if output is complete on stdin
 
         this.onActivated = () => {} // can be overwritten to know when activation is complete
@@ -86,6 +87,9 @@ class WasmWebTerm {
             this._xtermFitAddon.fit()
         })
 
+        // handle module drag and drop
+        setTimeout(() => this._initWasmModuleDragAndDrop(), 1)
+
         // set xterm prompt
         this._xtermPrompt = async () => "$ "
         // async to be able to fetch sth here
@@ -102,8 +106,8 @@ class WasmWebTerm {
         })
 
         this.registerCommand("clear", async (argv) => {
-            // clear entire terminal, print welcome message, clear last line
-            return "\u001b[2J\u001b[0;0H" + (await this._printWelcomeMessage()) + "\x1B[A"
+            // clear entire terminal, print welcome message, clear last two linebreaks
+            return "\u001b[2J\u001b[0;0H" + (await this._printWelcomeMessage()) + "\x1B[A\x1B[A"
         })
 
         /* this.registerCommand("echo", async function*(argv) {
@@ -187,6 +191,9 @@ class WasmWebTerm {
             // print newline after
             this._xterm.write("\r\n")
 
+            // print extra newline if outputs does not end with one
+            if(this._outputBuffer.slice(-1) != "\n") this._xterm.write("\r\n")
+
             // give user possibility to run sth after exec
             await this.onCommandRunFinish()
 
@@ -205,6 +212,7 @@ class WasmWebTerm {
         try {
 
             let stdinPreset = null
+            this._suppressOutputs = false
 
             const commandsInLine = line.split("|") // respecting pipes // TODO: <, >, &
             for(const [index, commandString] of commandsInLine.entries()) {
@@ -269,7 +277,7 @@ class WasmWebTerm {
         }
 
         // catch errors (print to terminal and developer console)
-        catch(e) { this._xterm.write(e + "\r\n"); console.error("Error running line:", e) }
+        catch(e) { this._xterm.write(e); console.error("Error running line:", e) }
 
     }
 
@@ -284,7 +292,7 @@ class WasmWebTerm {
         else this.isRunningCommand = true
 
         // enable outputs if they were suppressed
-        this._suppressOutputs = false
+        this._suppressOutputs = false; this._outputBuffer = ""
 
         // define callback for when command has finished
         const onFinish = Comlink.proxy(async files => {
@@ -296,7 +304,7 @@ class WasmWebTerm {
 
             // store created files
             this._wasmFsFiles = files
-            this.onFileSystemUpdate(this._wasmFsFiles)
+            await this.onFileSystemUpdate(this._wasmFsFiles)
 
             // wait until outputs are rendered
             this._waitForOutputPause().then(() => {
@@ -325,14 +333,14 @@ class WasmWebTerm {
                 // delegate command execution to worker thread
                 this._worker.runCommand(programName, wasmModule.module, wasmModule.type, argv,
                     this._stdinProxy, this._stdoutProxy, this._stderrProxy, this._wasmFsFiles, onFinish,
-                    onError, null, stdinPreset, this._emscrJsRuntimePath)
+                    onError, null, stdinPreset, wasmModule.runtime)
 
             else // if not -> fallback with prompts
 
                 // start execution on the MAIN thread (freezes terminal)
                 this._wasmRunner.runCommand(programName, wasmModule.module, wasmModule.type, argv,
                     null, this._stdoutProxy, this._stderrProxy, this._wasmFsFiles, onFinish,
-                    onError, null, stdinPreset, this._emscrJsRuntimePath)
+                    onError, null, stdinPreset, wasmModule.runtime)
         })
 
         // catch errors (command not running anymore + reject (returns to shell))
@@ -372,20 +380,17 @@ class WasmWebTerm {
         // get or initialize wasm module
         this._getOrInitWasmModule(programName).then(wasmModule => {
 
-            // clear last line
-            this._xterm.write("\x1b[2K\r")
-
             if(this._worker) // check if we can run on worker
 
                 // delegate command execution to worker thread
                 this._worker.runCommandHeadless(programName, wasmModule.module, wasmModule.type, argv,
-                    this._wasmFsFiles, onFinish, onError, onSuccess, stdinPreset, this._emscrJsRuntimePath)
+                    this._wasmFsFiles, onFinish, onError, onSuccess, stdinPreset, wasmModule.runtime)
 
             else // if not -> use fallback
 
                 // start execution on the MAIN thread (freezes terminal)
                 this._wasmRunner.runCommandHeadless(programName, wasmModule.module, wasmModule.type, argv,
-                    this._wasmFsFiles, onFinish, onError, onSuccess, stdinPreset, this._emscrJsRuntimePath)
+                    this._wasmFsFiles, onFinish, onError, onSuccess, stdinPreset, wasmModule.runtime)
 
         })
 
@@ -400,60 +405,133 @@ class WasmWebTerm {
     /* wasm module handling */
 
     _getOrInitWasmModule(programName) {
-        return new Promise((resolve, reject) => {
+        return new Promise(async (resolve, reject) => {
 
             let wasmModule
 
             // check if there is an initialized module already
             this._wasmModules.forEach(moduleObj => {
-                if(moduleObj.name == programName) wasmModule = moduleObj
-            })
+                if(moduleObj.name == programName) wasmModule = moduleObj })
 
             // if a module was found -> resolve
             if(wasmModule?.module instanceof WebAssembly.Module) resolve(wasmModule)
 
-            else { // if none is found -> initialize a new one
+            else try { // if none is found -> initialize a new one
 
-                let type = "emscripten" // try emscripten first, else wasmer
-                const emscrWasmModuleURL = this._emscrWasmBinaryPath + "/" + programName + ".wasm"
+                let response, wasmBinary
+                wasmModule = { name: programName, type: "emscripten", module: undefined }
 
-                // try to fetch emscripten wasm module
-                fetch(emscrWasmModuleURL).then(async response => {
+                // only fetch when path submitted
+                if(this.wasmBinaryPath != undefined)
 
-                    // if found -> return it as array buffer
-                    if(response.ok) return response.arrayBuffer()
+                    // try to fetch local wasm binaries first
+                    response = await fetch(this.wasmBinaryPath + "/" + programName + ".wasm")
 
-                    else
+                // if no path is submitted -> found = false
+                let localWasmBinaryFound = response?.ok || false
 
-                        try { type = "wasmer"
+                if(localWasmBinaryFound) { // if found
 
-                            // if not -> try to fetch wasmer binary from wapm.io
-                            return await WapmFetchUtil.getWasmBinaryFromCommand(programName)
+                    // get binary array from response
+                    wasmBinary = await response.arrayBuffer()
 
-                        } catch(e) {
+                    // check if is valid wasm binary (could also be 404 html)
+                    if(localWasmBinaryFound = WebAssembly.validate(wasmBinary)) {
 
-                            // return error as Promise.reject -> jumps into catch block
-                            return Promise.reject(e.toString())
-                        }
+                        // try to fetch emscripten js runtime
+                        response = await fetch(this.wasmBinaryPath + "/" + programName + ".js")
+                        if(response.ok) wasmModule.runtime = await response.arrayBuffer()
 
-                })
+                        // if none was found -> it's considered a wasmer binary
+                        else wasmModule.type = "wasmer"
+
+                    }
+                }
+
+                if(!localWasmBinaryFound) { // if no local binary was found -> fetch from wapm.io
+                    wasmBinary = await WapmFetchUtil.getWasmBinaryFromCommand(programName)
+                    wasmModule.type = "wasmer"
+                }
 
                 // compile fetched bytes into wasm module
-                .then(bytes => WebAssembly.compile(bytes)).then(module => {
+                wasmModule.module = await WebAssembly.compile(wasmBinary)
 
-                    // create wrapper object for compiled module
-                    wasmModule = { name: programName, type: type, module: module }
+                // store compiled module
+                this._wasmModules.push(wasmModule)
 
-                    // store compiled module in this._wasmModules
-                    this._wasmModules.push(wasmModule)
+                console.log("wasmModule", wasmModule)
 
-                    resolve(wasmModule) // resolve continues execution
-                })
+                // continue execution
+                resolve(wasmModule)
 
-                // handle errors
-                .catch(e => reject(e))
-            }
+            } catch(e) { reject(e) }
         })
+    }
+
+    _initWasmModuleDragAndDrop() {
+
+        // event handler for when user starts to drag file
+        this._xterm.element.addEventListener("dragenter", e => {
+            this._xterm.element.style.opacity = "0.8" })
+
+        // needed for drop event to be fired on div
+        this._xterm.element.addEventListener("dragover", e => {
+            e.preventDefault(); this._xterm.element.style.opacity = "0.8" })
+
+        // event handler for when user stops to drag file
+        this._xterm.element.addEventListener("dragleave", e => {
+            this._xterm.element.style.opacity = "" })
+
+        // event handler for when the user drops the file
+        this._xterm.element.addEventListener("drop", async e => {
+            e.preventDefault(); let files = []
+
+            if(e.dataTransfer.items) // read files from .items
+                for(let i = 0; i < e.dataTransfer.items.length; i++)
+                    if(e.dataTransfer.items[i].kind == "file")
+                        files.push(e.dataTransfer.items[i].getAsFile())
+
+            // read files from .files (other browsers)
+            else for(let i = 0; i < e.dataTransfer.files.length; i++)
+                files.push(e.dataTransfer.files[i])
+
+            // parse dropped files into modules
+            for(let i = 0; i < files.length; i++) {
+                const file = files[i]; if(file.name.endsWith(".wasm")) {
+
+                    const programName = file.name.replace(/\.wasm$/, "")
+
+                    // remove existing modules with that name
+                    this._wasmModules = this._wasmModules.filter(mod => mod.name != programName)
+
+                    // if has .js file -> it's an emscripten binary
+                    if(files.some(f => f.name == programName + ".js")) {
+
+                        // load emscripten js runtime and compile emscripten wasm binary
+                        const emscrJsRuntime = files.find(f => f.name == programName + ".js")
+                        const emscrWasmModule = await WebAssembly.compile(await file.arrayBuffer())
+
+                        // add compiled emscripten module to this._wasmModules
+                        this._wasmModules.push({ name: programName, type: "emscripten",
+                            runtime: await emscrJsRuntime.arrayBuffer(), module: emscrWasmModule })
+
+                        alert("Emscripten Wasm Module added: " + programName)
+                    }
+
+                    else { // if not -> its considered a wasmer binary
+
+                        // compile wasmer module and store in this._wasmModules
+                        const wasmerModule = await WebAssembly.compile(await file.arrayBuffer())
+                        this._wasmModules.push({ name: programName, type: "wasmer", module: wasmerModule })
+
+                        alert("WASI Module added: " + programName)
+                    }
+                }
+            }
+
+            this._xterm.element.style.opacity = ""
+        }, false)
+
     }
 
 
@@ -549,6 +627,7 @@ class WasmWebTerm {
         value = value.replace(/\n/g, "\r\n")
 
         // buffer time for synchronity
+        this._outputBuffer += value
         this._lastOutputTime = Date.now()
 
         // write to terminal

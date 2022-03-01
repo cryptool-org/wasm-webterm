@@ -42,7 +42,7 @@ module.exports = function (source) {
 
             // exit on errors
             if(error != null) reject(error)
-            if(stats.hasErrors()) reject(stats.compilation.errors)
+            if(stats?.hasErrors()) reject(stats.compilation.errors)
 
             // read compiled bundle from file system and resolve
             try {

@@ -11,7 +11,7 @@ class WasmRunner {
     constructor() { this.outputBuffer = "" }
 
     runCommand(programName, wasmModule, wasmModuleType, argv, stdinProxy, stdoutProxy,
-        stderrProxy, files, onFinish, onError, onSuccess, stdinPreset, emscrJsRuntimePath) {
+        stderrProxy, files, onFinish, onError, onSuccess, stdinPreset, emscrJsRuntime) {
 
         // initialize default callbacks
         if(typeof onFinish  != "function") onFinish  = () => {}
@@ -27,16 +27,13 @@ class WasmRunner {
 
             // instantiate new emscr runnable
             console.log("wasm runner creates new emscr runnable")
-            let emscrWasmExe = new EmscrWasmRunnable(programName, wasmModule, () => {
+            let emscrWasmExe = new EmscrWasmRunnable(programName, wasmModule, emscrJsRuntime)
 
-                // pipe stdin calls through stdin handler (which pauses thread)
-                const stdinHandler = (tty) => this._onEmscrStdinCall(tty, stdinProxy, stdoutHandler, stderrHandler)
+            // pipe stdin calls through stdin handler (which pauses thread)
+            const stdinHandler = (tty) => this._onEmscrStdinCall(tty, stdinProxy, stdoutHandler, stderrHandler)
 
-                // run command on it
-                emscrWasmExe.run(argv, stdinHandler, stdoutHandler, stderrHandler, files, onFinish, onError, onSuccess, stdinPreset)
-
-            }, emscrJsRuntimePath)
-
+            // run command on it
+            emscrWasmExe.run(argv, stdinHandler, stdoutHandler, stderrHandler, files, onFinish, onError, onSuccess, stdinPreset)
         }
 
         else if(wasmModuleType == "wasmer") {
@@ -50,7 +47,6 @@ class WasmRunner {
 
             // run command on it
             wasmerExe.run(argv, stdinHandler, stdoutHandler, stderrHandler, files, onFinish, onError, onSuccess, stdinPreset)
-
         }
 
         else throw new Error("Unknown wasm module type (can only handle emscripten or wasmer)")
@@ -58,7 +54,7 @@ class WasmRunner {
     }
 
     runCommandHeadless(programName, wasmModule, wasmModuleType, argv,
-        files, onFinish, onError, onSuccess, stdinPreset, emscrJsRuntimePath) {
+        files, onFinish, onError, onSuccess, stdinPreset, emscrJsRuntime) {
 
         // initialize default callbacks
         if(typeof onFinish  != "function") onFinish  = () => {}
@@ -69,13 +65,10 @@ class WasmRunner {
 
             // instantiate new emscr runnable
             console.log("wasm runner creates new emscr runnable")
-            let emscrWasmExe = new EmscrWasmRunnable(programName, wasmModule, () => {
+            let emscrWasmExe = new EmscrWasmRunnable(programName, wasmModule, emscrJsRuntime)
 
-                // run command on it
-                emscrWasmExe.runHeadless(argv, files, onFinish, onError, onSuccess, stdinPreset)
-
-            }, emscrJsRuntimePath)
-
+            // run command on it
+            emscrWasmExe.runHeadless(argv, files, onFinish, onError, onSuccess, stdinPreset)
         }
 
         else if(wasmModuleType == "wasmer") {
@@ -85,7 +78,6 @@ class WasmRunner {
 
             // run command on it
             wasmerExe.runHeadless(argv, files, onFinish, onError, onSuccess, stdinPreset)
-
         }
 
         else throw new Error("Unknown wasm module type (can only handle emscripten or wasmer)")

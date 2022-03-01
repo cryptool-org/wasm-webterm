@@ -8,13 +8,10 @@ class EmscrWasmRunnable {
 
     _emscrJsRuntime
 
-    constructor(programName, wasmModule, onJsRuntimeInit, emscrJsRuntimePath) {
-
+    constructor(programName, wasmModule, jsRuntime) {
         this.programName = programName
         this.wasmModule = wasmModule
-
-        this._loadEmscrJsRuntime(onJsRuntimeInit, emscrJsRuntimePath)
-
+        this._loadEmscrJsRuntime(jsRuntime)
     }
 
     /**
@@ -165,40 +162,43 @@ class EmscrWasmRunnable {
 
     /* internal methods */
 
-    // loads emscripten javascript runtime environment
-    _loadEmscrJsRuntime(onJsRuntimeInit, emscrJsRuntimePath = "bin") {
+    _loadEmscrJsRuntime(jsRuntime) {
 
-        const emscrJSRuntimeURL = emscrJsRuntimePath + "/" + this.programName + ".js"
-        const emscrJsModuleName = "EmscrJsRE_" + this.programName
-
-        if(typeof onJsRuntimeInit != "function") onJsRuntimeInit = () => {}
+        const emscrJsModuleName = "EmscrJsRE_" + this.programName // todo: EmscrJSR_
 
         // try worker import
         if(this._isWorkerScope()) {
-            importScripts(emscrJSRuntimeURL)
+
+            // import js runtime
+            let blob = new Blob([jsRuntime], { type: "application/javascript" })
+            importScripts(URL.createObjectURL(blob))
+
+            console.log(jsRuntime, blob)
+
+            // read emscripten Module from js runtime
             this._emscrJsRuntime = self[emscrJsModuleName] || self["_createPyodideModule"]
-            setTimeout(onJsRuntimeInit, 1) // todo: find better solution for module names
+            // todo: find better solution for module names
         }
 
         // check if is in normal browser dom
         else if(typeof document != "undefined") {
 
-            // todo: error handling for when scripts have 404
-            // --> should be displayed on terminal -- how?
+            const jsRuntimeElemID = this.programName + "_emscrJSR"
 
-            // if runtime is injected already -> callback immediatly
-            if(document.querySelector(`[src="${emscrJSRuntimeURL}"]`)) {
-                setTimeout(onJsRuntimeInit, 1); return }
+            // inject js runtime if not done before
+            if(!document.getElementById(jsRuntimeElemID)) {
 
-            let script = document.createElement("script")
-            script.type = "text/javascript"
-            script.onload = () => {
-                this._emscrJsRuntime = window[emscrJsModuleName]
-                setTimeout(onJsRuntimeInit, 1)
+                // create new script element for runtime
+                let script = document.createElement("script")
+                script.type = "text/javascript"; script.id = jsRuntimeElemID
+
+                // insert js runtime script into DOM
+                script.innerHTML = new TextDecoder("utf-8").decode(jsRuntime)
+                document.head.appendChild(script)
             }
-            // script.onerror = (e) => { throw new Error("Failed to load emscr js runtime") }
-            script.src = emscrJSRuntimeURL
-            document.head.appendChild(script)
+
+            // read emscripten Module from js runtime
+            this._emscrJsRuntime = window[emscrJsModuleName]
         }
 
         else throw new Error("can not load emscr js runtime environment")

@@ -5,7 +5,7 @@
 
 
 // some imports need to be lowered
-import { lowerI64Imports } from "@wasmer/wasm-transformer"
+// import { lowerI64Imports } from "@wasmer/wasm-transformer"
 
 // packages come as .tar.gz
 import pako from "pako" // gunzip
@@ -178,9 +178,11 @@ class WapmFetchUtil {
         const inflatedBinary = pako.inflate(binary); const wapmFiles = await untar(inflatedBinary.buffer)
         const wasmerFiles = wapmFiles.filter(wapmFile => wapmFile.name.split("/").pop().endsWith(".wasm"))
 
+        // console.log("wasmerFiles", wasmerFiles)
+
         // check if we got exactly one binary and then lower its imports
         if(wasmerFiles.length > 1) throw Error("more than 1 wasm file, don't know what to do :D")
-        const wasmModule = await lowerI64Imports(wasmerFiles[0].buffer) // wasmerFiles[0].buffer
+        const wasmModule = wasmerFiles[0].buffer // await lowerI64Imports(wasmerFiles[0].buffer)
 
         return wasmModule
     }
