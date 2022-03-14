@@ -1,4 +1,4 @@
-import * as Comlink from "comlink"
+import * as Comlink from "comlink" // todo: maybe only import Comlink.expose?
 import WasmRunner from "./WasmRunner"
 
 class WasmWorker extends WasmRunner {
@@ -96,6 +96,7 @@ class WasmWorker extends WasmRunner {
     static expose() {
         if(typeof Comlink == "undefined" && WasmWorker.isWorkerScope())
             importScripts("https://cdn.jsdelivr.net/npm/comlink@4.3.1/dist/umd/comlink.min.js")
+        // note: the bundle would get smaller if we would always load Comlink from CDN ..
         Comlink.expose(WasmWorker)
     }
 

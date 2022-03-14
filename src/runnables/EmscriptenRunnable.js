@@ -164,7 +164,7 @@ class EmscrWasmRunnable {
 
     _loadEmscrJsRuntime(jsRuntime) {
 
-        const emscrJsModuleName = "EmscrJsRE_" + this.programName // todo: EmscrJSR_
+        const emscrJsModuleName = "EmscrJSR_" + this.programName
 
         // try worker import
         if(this._isWorkerScope()) {

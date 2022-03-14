@@ -3,27 +3,14 @@ import * as Comlink from "comlink"
 import { FitAddon } from "xterm-addon-fit"
 import XtermEchoAddon from "local-echo"
 
-import WasmWorker from "./runners/WasmWorker" // will be prebuilt using webpack
+import WasmWorkerRAW from "./runners/WasmWorker" // will be prebuilt using webpack
 import { default as PromptsFallback } from "./runners/WasmRunner"
 import WapmFetchUtil from "./WapmFetchUtil"
 
+
 class WasmWebTerm {
 
-    _xterm
-    _xtermEcho
-    _xtermPrompt
-
-    _commands
     isRunningCommand
-
-    _worker
-    _wasmRunner // prompts fallback
-
-    _wasmModules
-    _wasmFsFiles
-
-    _outputBuffer
-    _lastOutputTime
 
     onActivated
     onDisposed
@@ -32,20 +19,33 @@ class WasmWebTerm {
     onBeforeCommandRun
     onCommandRunFinish
 
+    _xterm
+    _xtermEcho
+    _xtermPrompt
+
+    _worker
+    _wasmRunner // prompts fallback
+
+    _jsCommands
+    _wasmModules
+    _wasmFsFiles
+
+    _outputBuffer
+    _lastOutputTime
 
     constructor(wasmBinaryPath) {
 
         this.wasmBinaryPath = wasmBinaryPath
 
-        this._commands = new Map() // contains commands and their callback functions
+        this._jsCommands = new Map() // js commands and their callback functions
         this.isRunningCommand = false // allow running only 1 command in parallel
 
         this._worker = false // fallback (do not use worker until it is initialized)
-        this._wasmModules = [] // [{ name: "openssl", type: "emscripten|wasmer", module: WebAssembly.Module, runtime: [optional] }]
-        this._wasmFsFiles = [] // files created during execution (will be written to FS)
+        this._wasmModules = [] // [{ name: "abc", type: "emscripten|wasmer", module: WebAssembly.Module, [runtime: Blob] }]
+        this._wasmFsFiles = [] // files created during wasm execution (will be written to wasm runtime's FS)
 
         this._outputBuffer = "" // buffers outputs to determine if it ended with line break
-        this._lastOutputTime = 0 // can be used for guessing if output is complete on stdin
+        this._lastOutputTime = 0 // can be used for guessing if output is complete on stdin calls
 
         this.onActivated = () => {} // can be overwritten to know when activation is complete
         this.onDisposed = () => {} // can be overwritten to know when disposition is complete
@@ -99,28 +99,16 @@ class WasmWebTerm {
         this._xtermEcho.activate(this._xterm)
 
 
-        // register available commands
+        // register available js commands
 
-        this.registerCommand("help", async function*(argv) {
+        this.registerJsCommand("help", async function*(argv) {
             yield "todo: show helping things"
         })
 
-        this.registerCommand("clear", async (argv) => {
+        this.registerJsCommand("clear", async (argv) => {
             // clear entire terminal, print welcome message, clear last two linebreaks
-            return "\u001b[2J\u001b[0;0H" + (await this._printWelcomeMessage()) + "\x1B[A\x1B[A"
+            return "\u001b[2J\u001b[0;0H" + (await this.printWelcomeMessage()) + "\x1B[A\x1B[A"
         })
-
-        /* this.registerCommand("echo", async function*(argv) {
-            for(const char of argv.join(" ")) yield char // generator variant
-        })
-
-        this.registerCommand("echo2", (argv) => {
-            return argv.join(" ") // sync and normal return variant
-        })
-
-        this.registerCommand("echo3", async (argv) => {
-            return argv.join(" ") + "\n" // async function variant (like promises)
-        }) */
 
 
         // if using webworker -> wait until initialized
@@ -131,7 +119,7 @@ class WasmWebTerm {
         this._xterm.onData(data => this._onXtermData(data))
 
         // write welcome message to terminal
-        this._xterm.write(await this._printWelcomeMessage())
+        this._xterm.write(await this.printWelcomeMessage())
 
         // notify that we're ready
         await this.onActivated()
@@ -152,18 +140,18 @@ class WasmWebTerm {
     }
 
 
-    /* command handling */
+    /* js command handling */
 
-    registerCommand(name, callback, autocomplete) {
-        this._commands.set(name, { name, callback, autocomplete })
+    registerJsCommand(name, callback, autocomplete) {
+        this._jsCommands.set(name, { name, callback, autocomplete })
         return this // to be able to stack these calls
     }
 
-    unregisterCommand(name) {
-        return this._commands.delete(name)
+    unregisterJsCommand(name) {
+        return this._jsCommands.delete(name)
     }
 
-    get commands() { return this._commands }
+    get jsCommands() { return this._jsCommands }
 
 
     /* read eval print loop */
@@ -219,17 +207,21 @@ class WasmWebTerm {
 
                 // parse command string into command name and argv
                 const argv = commandString.split(/[\s]{1,}/g).filter(Boolean)
-                const commandName = argv.shift(), command = this._commands.get(commandName)
+                const commandName = argv.shift(), command = this._jsCommands.get(commandName)
 
-                // try user registered commands first
+                // try user registered js commands first
                 if(typeof command?.callback == "function") {
+
+                    // todo: move this to a method like "runJsCommand"?
 
                     // call registered user function
                     const result = command.callback(argv, stdinPreset)
                     let output // where user function outputs are stored
 
                     /**
-                     * user functions can pass outputs in various ways:
+                     * user functions are another word for custom js
+                     * commands and can pass outputs in various ways:
+                     *
                      * 1) return value normally via "return"
                      * 2) pass value through promise resolve() / async
                      * 3) yield values via generator functions
@@ -249,7 +241,7 @@ class WasmWebTerm {
                     if(index == commandsInLine.length - 1) this._stdout(output)
                     else stdinPreset = output || null // else -> use output as stdinPreset
 
-                    // todo: make it possible for user functions to use stdERR
+                    // todo: make it possible for user functions to use stdERR.
                     // exceptions? they end function execution..
 
                 }
@@ -259,13 +251,13 @@ class WasmWebTerm {
 
                     // if is not last command in pipe
                     if(index < commandsInLine.length - 1) {
-                        const output = await this.runCommandHeadless(commandName, argv, stdinPreset)
+                        const output = await this.runWasmCommandHeadless(commandName, argv, stdinPreset)
                         stdinPreset = output.stdout // apply last stdout to next stdin
                     }
 
                     // if is last command -> run normally and reset stdinPreset
                     else {
-                        await this.runCommand(commandName, argv, stdinPreset)
+                        await this.runWasmCommand(commandName, argv, stdinPreset)
                         stdinPreset = null
                     }
                 }
@@ -284,9 +276,9 @@ class WasmWebTerm {
 
     /* running single wasm commands */
 
-    runCommand(programName, argv, stdinPreset, onFinishCallback) {
+    runWasmCommand(programName, argv, stdinPreset, onFinishCallback) {
 
-        console.log("called runCommand:", programName, argv)
+        console.log("called runWasmCommand:", programName, argv)
 
         if(this.isRunningCommand) throw "WasmWebTerm is already running a command"
         else this.isRunningCommand = true
@@ -313,7 +305,7 @@ class WasmWebTerm {
                 if(typeof onFinishCallback == "function") onFinishCallback()
 
                 // resolve await from shell
-                this._runCommandPromise?.resolve()
+                this._runWasmCommandPromise?.resolve()
             })
         })
 
@@ -322,7 +314,7 @@ class WasmWebTerm {
 
         // get or initialize wasm module
         this._stdout("loading web assembly ...")
-        this._getOrInitWasmModule(programName).then(wasmModule => {
+        this._getOrFetchWasmModule(programName).then(wasmModule => {
 
             // clear last line
             this._xterm.write("\x1b[2K\r")
@@ -344,19 +336,19 @@ class WasmWebTerm {
         })
 
         // catch errors (command not running anymore + reject (returns to shell))
-        .catch(e => { this.isRunningCommand = false; this._runCommandPromise?.reject("\r\n" + e) })
+        .catch(e => { this.isRunningCommand = false; this._runWasmCommandPromise?.reject("\r\n" + e) })
 
         // return promise (makes shell await)
-        return new Promise((resolve, reject) => this._runCommandPromise = { resolve, reject })
+        return new Promise((resolve, reject) => this._runWasmCommandPromise = { resolve, reject })
     }
 
-    runCommandHeadless(programName, argv, stdinPreset, onFinishCallback) {
+    runWasmCommandHeadless(programName, argv, stdinPreset, onFinishCallback) {
 
         if(this.isRunningCommand) throw "WasmWebTerm is already running a command"
         else this.isRunningCommand = true
 
         // promise for resolving / rejecting command execution
-        let runCommandHeadlessPromise = { resolve: () => {}, reject: () => {} }
+        let runWasmCommandHeadlessPromise = { resolve: () => {}, reject: () => {} }
 
         // define callback for when command has finished
         const onFinish = Comlink.proxy(outBuffers => {
@@ -368,7 +360,7 @@ class WasmWebTerm {
             if(typeof onFinishCallback == "function") onFinishCallback(outBuffers)
 
             // resolve promise
-            runCommandHeadlessPromise.resolve(outBuffers)
+            runWasmCommandHeadlessPromise.resolve(outBuffers)
         })
 
         // define callback for when errors occur
@@ -378,7 +370,7 @@ class WasmWebTerm {
         const onSuccess = Comlink.proxy(() => {}) // not used currently
 
         // get or initialize wasm module
-        this._getOrInitWasmModule(programName).then(wasmModule => {
+        this._getOrFetchWasmModule(programName).then(wasmModule => {
 
             if(this._worker) // check if we can run on worker
 
@@ -395,16 +387,16 @@ class WasmWebTerm {
         })
 
         // catch errors (command not running anymore + reject promise)
-        .catch(e => { this.isRunningCommand = false; runCommandHeadlessPromise.reject(e) })
+        .catch(e => { this.isRunningCommand = false; runWasmCommandHeadlessPromise.reject(e) })
 
         // return promise (makes shell await)
-        return new Promise((resolve, reject) => runCommandHeadlessPromise = { resolve, reject })
+        return new Promise((resolve, reject) => runWasmCommandHeadlessPromise = { resolve, reject })
     }
 
 
     /* wasm module handling */
 
-    _getOrInitWasmModule(programName) {
+    _getOrFetchWasmModule(programName) {
         return new Promise(async (resolve, reject) => {
 
             let wasmModule
@@ -458,8 +450,6 @@ class WasmWebTerm {
 
                 // store compiled module
                 this._wasmModules.push(wasmModule)
-
-                console.log("wasmModule", wasmModule)
 
                 // continue execution
                 resolve(wasmModule)
@@ -545,11 +535,12 @@ class WasmWebTerm {
             this._stdinBuffer = new Int32Array(new SharedArrayBuffer(Int32Array.BYTES_PER_ELEMENT * 1000)) // 1000 chars buffer
 
             // create blob including webworker and its dependencies
-            let blob = new Blob([WasmWorker], { type: "application/javascript" })
+            let blob = new Blob([WasmWorkerRAW], { type: "application/javascript" })
 
             // init webworker from blob (no separate file)
             this._workerRAW = new Worker(URL.createObjectURL(blob))
-            this._worker = await new (Comlink.wrap(this._workerRAW))(this._pauseBuffer, this._stdinBuffer)
+            const WasmWorker = Comlink.wrap(this._workerRAW)
+            this._worker = await new WasmWorker(this._pauseBuffer, this._stdinBuffer)
 
             resolve(this._worker) // webworker is now initialized
         })
@@ -606,7 +597,6 @@ class WasmWebTerm {
             // pass value to webworker
             this._setStdinBuffer(input + "\n")
             this._resumeWorker()
-
         })
     })
 
@@ -636,7 +626,7 @@ class WasmWebTerm {
 
     _stderr = this._stdout
 
-    async _printWelcomeMessage() {
+    async printWelcomeMessage() {
         let message = `\x1b[1;32m
  _ _ _                  _ _ _     _      _____               \r
 | | | |___ ___ _____   | | | |___| |_   |_   _|___ ___ _____ \r
@@ -647,7 +637,7 @@ class WasmWebTerm {
         message += "Run WebAssembly binaries compiled with Emscripten or Wasmer.\r\n"
         message += "You can also define and run custom JavaScript functions.\r\n\r\n"
 
-        message += "Commands: " + [...this._commands].map(commandObj => commandObj[0]).sort().join(", ") + ". "
+        message += "Commands: " + [...this._jsCommands].map(commandObj => commandObj[0]).sort().join(", ") + ". "
         message += "Backend: " + (this._worker ? "WebWorker" : "Prompts Fallback") + ".\r\n\r\n"
 
         return message
@@ -660,7 +650,7 @@ class WasmWebTerm {
                 this._suppressOutputs = true
                 this._terminateWorker()
                 this._initWorker() // reinit
-                this._runCommandPromise?.reject("Ctrl + C")
+                this._runWasmCommandPromise?.reject("Ctrl + C")
                 this.isRunningCommand = false
             }
         }
