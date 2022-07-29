@@ -118,11 +118,11 @@ class WasmWebTerm {
         // register xterm data handler for Ctrl+C
         this._xterm.onData(data => this._onXtermData(data))
 
-        // write welcome message to terminal
-        this._xterm.write(await this.printWelcomeMessage())
-
         // notify that we're ready
         await this.onActivated()
+
+        // write welcome message to terminal
+        this._xterm.write(await this.printWelcomeMessage())
 
         // start REPL
         this.repl()
