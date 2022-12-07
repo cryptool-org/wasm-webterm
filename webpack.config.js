@@ -1,6 +1,6 @@
 /**
  * Webpack config to bundle WasmWebTerm
- * Generates the file "webterm.bundle.js"
+ * Generates the files "webterm.bundle.js" and "webterm.bundle.js.map"
  */
 
 const webpack = require("webpack")
@@ -29,5 +29,6 @@ module.exports = {
     },
     resolveLoader: {
         alias: { "worker-loader": __dirname + "/worker.loader.js" }
-    }
+    },
+    devtool: "source-map"
 }

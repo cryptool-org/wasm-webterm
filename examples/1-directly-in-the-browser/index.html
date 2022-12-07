@@ -1,0 +1,25 @@
+<html>
+    <head>
+        <!-- import xterm.js -->
+        <script src="node_modules/xterm/lib/xterm.js"></script>
+        <link rel="stylesheet" href="node_modules/xterm/css/xterm.css"/>
+
+        <!-- import wasm-webterm (bundled) -->
+        <script src="node_modules/wasm-webterm/webterm.bundle.js"></script>
+    </head>
+    <body>
+
+        <div id="terminal"></div> <!-- xterm.js spawnpoint -->
+
+        <script>
+            let term = new Terminal()  // init xterm.js terminal
+            term.loadAddon(new WasmWebTerm.default("./binaries"))  // load wasm-webterm addon
+            term.open(document.getElementById("terminal"))  // render terminal into dom
+        </script>
+
+        <style> /* apply some style (full width and height) */
+            html, body { margin: 0; padding: 0; background: #000; }
+            .xterm.terminal { height: calc(100vh - 2rem); padding: 1rem; }
+        </style>
+    </body>
+</html>

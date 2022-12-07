@@ -1,0 +1,17 @@
+{
+  "name": "wasm-webterm-plainjs-example",
+  "version": "1.0.0",
+  "description": "Example for how to use wasm-webterm with plain JS in a browser",
+  "scripts": {
+    "http-server": "http-server ."
+  },
+  "author": "cryptool.org",
+  "license": "Apache-2.0",
+  "dependencies": {
+    "wasm-webterm": "file:../..",
+    "xterm": "^5.0.0"
+  },
+  "devDependencies": {
+    "http-server": "^14.1.1"
+  }
+}

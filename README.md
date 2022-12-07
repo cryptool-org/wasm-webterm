@@ -2,7 +2,7 @@
   <img height="100" src="https://user-images.githubusercontent.com/9321076/156306369-67d21652-3b81-475c-8b70-2bd7cbfbdf44.png" valign="middle" />
   <h1 style="border-bottom: none;">WebAssembly WebTerm</h1>
   🚀 <a href="https://www.cryptool.org/webterm">Live Demo</a> &nbsp;&nbsp;
-  ⚛️ <a href="https://github.com/cryptool-org/wasm-webterm-react">React Example</a> &nbsp;&nbsp;
+  ⚛️ <a href="./examples/3-react-with-webpack">React Example</a> &nbsp;&nbsp;
   🔐 <a href="https://github.com/cryptool-org/openssl-webterm">OpenSSL</a>
 </div>
 &nbsp;
@@ -21,7 +21,7 @@ Please note that xterm.js and this addon need a browser to run.
 
 ## Readme Contents
 
-* [Installation](#installation) and [Usage](#usage) ([Plain JS](#variant-1-load-via-plain-js-script-tag), [Node.js](#variant-2-import-as-nodejs-module-and-use-a-web-bundler), or [React](#variant-3-using-react-and-a-web-bundler))
+* [Installation](#installation) and [Usage](#usage) (via [`script` tag](#variant-1-load-via-plain-js-script-tag), [Node.js](#variant-2-import-as-nodejs-module-and-use-a-web-bundler), or [React](#variant-3-using-react-and-a-web-bundler))
 * [Binaries](#binaries) ([Predelivery](#predelivering-binaries), [Compiling C/C++](#compiling-cc-to-wasm-binaries), and [Compiling Rust](#compiling-rust-to-wasm-binaries))
 * [Internal workings](#internal-procedure-flow), [JS commands](#defining-custom-js-commands), and [`WasmWebTerm.js` Code API](#wasmwebtermjs-code-api)
 * [Contributing](#contributing) and [License](#license)
@@ -35,40 +35,42 @@ Please note that xterm.js and this addon need a browser to run.
 First, [install Node.js and npm](https://nodejs.org). Then install xterm.js and wasm-webterm:
 
 ```shell
-$ npm install --save xterm cryptool-org/wasm-webterm
+npm install xterm cryptool-org/wasm-webterm --save
 ```
 
 ## Usage
 
-JavaScript can be written for browsers or nodes, but this addon needs a browser to run (or at least a DOM and Workers or a `window` object). So if you use Node.js, you have to also use a web bundler like [Webpack](https://webpack.js.org) or [Parcel](https://parceljs.org).
+JavaScript can be written for browsers or nodes, but this addon needs a browser to run (or at least a DOM and Workers or a `window` object). So if you use Node.js, you have to also use a web bundler like [Webpack](https://webpack.js.org) or [Parcel](https://parceljs.org). Using plain JS does not require a bundler.
 
-Using plain JS does not require a bundler.
+> Please note: To make use of WebWorkers you will need to configure your server or web bundler to use [custom HTTPS headers for cross-origin isolation](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/SharedArrayBuffer#security_requirements). You can find an [example using Webpack in the examples folder](./examples/3-react-with-webpack/webpack.config.js#L14-L18).
 
-> Please note: To make use of WebWorkers you will need to configure your server or web bundler to use [custom HTTPS headers for cross-origin isolation](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/SharedArrayBuffer#security_requirements). You can find an [example using Webpack in the React example](https://github.com/cryptool-org/wasm-webterm-launcher/blob/master/webpack.config.js#L14-L18).
+Choose the variant that works best for your existing setup:
+
 
 ### Variant 1: Load via plain JS `<script>` tag
+
+The first and most simple way is to include the prebundled [`webterm.bundle.js`](./webterm.bundle.js) into an HTML page using a `<script>` tag.
+
+Create an HTML file (let's say `index.html`) and open it in your browser. You could also use [example 1 in the examples folder](./examples/1-directly-in-the-browser).
 
 ```html
 <html>
     <head>
-        <!-- import xterm.js -->
         <script src="node_modules/xterm/lib/xterm.js"></script>
         <link rel="stylesheet" href="node_modules/xterm/css/xterm.css"/>
-
-        <!-- import wasm-webterm (bundled) -->
         <script src="node_modules/wasm-webterm/webterm.bundle.js"></script>
     </head>
     <body>
 
-        <div id="terminal"></div> <!-- xterm.js spawnpoint -->
+        <div id="terminal"></div>
 
         <script>
-            let term = new Terminal()  // init xterm.js terminal
-            term.loadAddon(new WasmWebTerm.default())  // load wasm-webterm addon
-            term.open(document.getElementById("terminal"))  // render terminal into dom
+            let term = new Terminal()
+            term.loadAddon(new WasmWebTerm.default())
+            term.open(document.getElementById("terminal"))
         </script>
 
-        <style> /* apply some style (full width and height) */
+        <style>
             html, body { margin: 0; padding: 0; background: #000; }
             .xterm.terminal { height: calc(100vh - 2rem); padding: 1rem; }
         </style>
@@ -76,50 +78,38 @@ Using plain JS does not require a bundler.
 </html>
 ```
 
-> Please note that the plain JS version uses `new WasmWebTerm.default()` \[containing <ins>.default</ins>\] instead of just `new WasmWebTerm()` like in the Node.js examples.
-
-<details>
-  <summary>Quicktip: Load from CDN</summary>
-
-  > If you want a quick way without installing the Node Packages first, you can fetch the scripts from a CDN using the following `<head>` tags. The JS code in the `<body>` stays the same.
-
-  ```html
-  <head>
-      <!-- import xterm.js -->
-      <link rel="stylesheet" href="https://unpkg.com/xterm/css/xterm.css" crossorigin="true" />
-      <script src="https://unpkg.com/xterm/lib/xterm.js" crossorigin="true"></script>
-
-      <!-- import wasm-webterm (bundled) -->
-      <script src="https://unpkg.com/wasm-webterm/webterm.bundle.js" crossorigin="true"></script>
-  </head>
-  ```
-</details>
+> Please note that the plain JS version uses `new WasmWebTerm.default()` \[containing **.default**] instead of just `new WasmWebTerm()` like in the Node.js examples.
 
 
-### Variant 2: Import as Node.js Module and use a web bundler
+### Variant 2: Import as Node.js module and use a web bundler
 
-1) Create a `.js` file, let's say `index.js`
+If you are writing a Node.js module and use a web bundler to make it runnable in web browsers, here's how you could include this project:
+
+> You can also see [example 2 in the examples folder](./examples/2-nodejs-with-parcel). We used Parcel as an example, but any other bundler would work too.
+
+1) Create a JS file (let's say `index.js`)
+
 ```js
-import { Terminal } from "xterm"  // import xterm.js
-import WasmWebTerm from "wasm-webterm"  // import wasm-webterm
+import { Terminal } from "xterm"
+import WasmWebTerm from "wasm-webterm"
 
-let term = new Terminal()  // init xterm.js terminal
-term.loadAddon(new WasmWebTerm())  // load wasm-webterm addon
-term.open(document.getElementById("terminal"))  // render terminal into dom
+let term = new Terminal()
+term.loadAddon(new WasmWebTerm())
+term.open(document.getElementById("terminal"))
 ```
 
-2) Create an `.html` file, let's say `index.html`
+2) Create an HTML file (let's say `index.html`)
+
 ```html
 <html>
     <head>
-        <!-- import local xterm.js stylesheet -->
         <link rel="stylesheet" href="node_modules/xterm/css/xterm.css" />
     </head>
       <body>
-          <div id="terminal"></div>  <!-- xterm.js spawnpoint -->
-          <script src="./index.js" type="module"></script>  <!-- inject index.js -->
+          <div id="terminal"></div>
+          <script src="./index.js" type="module"></script>
 
-          <style> /* apply some style (full width and height) */
+          <style>
               html, body { margin: 0; padding: 0; background: #000; }
               .xterm.terminal { height: calc(100vh - 2rem); padding: 1rem; }
           </style>
@@ -127,36 +117,28 @@ term.open(document.getElementById("terminal"))  // render terminal into dom
 </html>
 ```
 
-3) Use a web bundler to make it run in a browser. Let's try [Parcel](https://github.com/parcel-bundler/parcel) as it's easy:
+3) Use a web bundler to make it run in a browser
 
 ```shell
-# npm install -g parcel-bundler
-$ parcel index.html
+npm install -g parcel-bundler
+parcel index.html
 ```
 
 
 ### Variant 3: Using React and a web bundler
 
-For React there's [xterm-for-react](https://github.com/robert-harbison/xterm-for-react) that lets us use xterm.js as a React Component. We can also easily pass our addon.
+If you are using React, [example 3 in the examples folder](./examples/3-react-with-webpack) includes a React wrapper for xterm.js that was taken from [xterm-for-react](https://github.com/robert-harbison/xterm-for-react). We can use this to pass our addon.
 
-#### Installation
-
-```shell
-$ npm install --save react-dom xterm-for-react cryptool-org/wasm-webterm
-```
-
-#### Usage
+The following code is not complete (you'd also need an HTML spawnpoint and a web bundler like Webpack) and we recommend to [see the React example](./examples/3-react-with-webpack).
 
 ```js
 import ReactDOM from "react-dom"
-import { XTerm } from "xterm-for-react"
+import XTerm from "./examples/3-react-with-webpack/xterm-for-react"
 import WasmWebTerm from "wasm-webterm"
 
 ReactDOM.render(<XTerm addons={[new WasmWebTerm()]} />,
     document.getElementById("terminal"))
 ```
-
-You will also need an HTML spawnpoint of course. You can then use a bundler like Webpack to bundle your React app. [See the React example](https://github.com/cryptool-org/wasm-webterm-launcher).
 
 
 -----
@@ -187,9 +169,9 @@ WebAssembly binaries are files ending on `.wasm` and can either be [predelivered
 
 When you host your webterm instance somewhere, you might want to deliver some precompiled wasm binaries for your users to use. For example, [we compiled OpenSSL with Emscripten to run it in the webterm](https://github.com/cryptool-org/openssl-webterm).
 
-[See below](#compiling-cc-to-wasm-binaries) how to compile them. Then copy your binaries (`.wasm` and optionally `.js` files) into a folder, let's say `./binaries`. Make sure, that your web bundler (or however you're serving your project) also delivers these binaries, so that they're available when running the webterm. [We used Webpack's CopyPlugin in our React example](https://github.com/cryptool-org/wasm-webterm-launcher/blob/master/webpack.config.js#L34-L36).
+[See below](#compiling-cc-to-wasm-binaries) how to compile them. Then copy your binaries (`.wasm` and optionally `.js` files) into a folder, let's say `./binaries`. Make sure, that your web bundler (or however you're serving your project) also delivers these binaries, so that they're available when running the webterm. [We used Webpack's CopyPlugin in our React example](./examples/3-react-with-webpack/webpack.config.js#L34-L36).
 
-Then pass their path to the [`WasmWebTerm`](https://github.com/cryptool-org/wasm-webterm/blob/master/src/WasmWebTerm.js) instance:
+Then pass their path to the [`WasmWebTerm`](./src/WasmWebTerm.js) instance:
 
 ```js
 let wasmterm = new WasmWebTerm("./binaries")
@@ -320,26 +302,37 @@ Copy it into your predelivery folder or drag&drop it into the terminal window. Y
 
 <img width="521" src="https://user-images.githubusercontent.com/9321076/158201274-233b2a04-5bc5-4bd0-8628-afa34364e86b.png" />
 
-When a user visits your page, it loads xterm.js and attaches our addon. [See the upper code examples](https://github.com/z11labs/wasm-webterm-readme#variant-2-import-as-nodejs-module-and-use-a-web-bundler). That calls the xterm.js life cycle method [`activate(xterm)`](#async-activatexterm) in [`WasmWebTerm.js`](https://github.com/cryptool-org/wasm-webterm/blob/master/src/WasmWebTerm.js) which starts the [REPL](#async-repl).
+When a user visits your page, it loads xterm.js and attaches our addon. [See the upper code examples](#variant-2-import-as-nodejs-module-and-use-a-web-bundler). That calls the xterm.js life cycle method [`activate(xterm)`](./src/WasmWebTerm.md#async-activatexterm) in [`WasmWebTerm.js`](./src/WasmWebTerm.js) which starts the [REPL](#async-repl).
 
-The REPL waits for the user to enter a line (any string, usually commands) into the terminal. This line is then evaluated by [`runLine(line)`](#async-runlineline). If there is a predefined JS command, it'll execute it. If not, it'll delegate to [`runWasmCommand(..)`](#runwasmcommandprogramname-argv-stdinpreset-onfinishcallback) (or [`runWasmCommandHeadless(..)`](#runwasmcommandheadlessprogramname-argv-stdinpreset-onfinishcallback) when piping).
+The REPL waits for the user to enter a line (any string, usually commands) into the terminal. This line is then evaluated by [`runLine(line)`](./src/WasmWebTerm.md#async-runlineline). If there is a predefined JS command, it'll execute it. If not, it'll delegate to [`runWasmCommand(..)`](./src/WasmWebTerm.md#runwasmcommandprogramname-argv-stdinpreset-onfinishcallback) (or [`runWasmCommandHeadless(..)`](./src/WasmWebTerm.md#runwasmcommandheadlessprogramname-argv-stdinpreset-onfinishcallback) when piping).
 
-This then calls [`_getOrFetchWasmModule(..)`](#_getorfetchwasmmoduleprogramname). It will search for a WebAssembly binary with the name of the command in the [predelivery folder](#predelivering-binaries). If none is found, it'll fetch [wapm.io](https://wapm.io/explore).
+This then calls [`_getOrFetchWasmModule(..)`](./src/WasmWebTerm.md#_getorfetchwasmmoduleprogramname). It will search for a WebAssembly binary with the name of the command in the [predelivery folder](#predelivering-binaries). If none is found, it'll fetch [wapm.io](https://wapm.io/explore).
 
-The binary will then be passed to an instance of [`WasmRunner`](https://github.com/cryptool-org/wasm-webterm/blob/master/src/runners/WasmRunner.js). If it receives both a wasm binary and a JS runtime, it'll instanciate an [`EmscrWasmRunnable`](https://github.com/cryptool-org/wasm-webterm/blob/master/src/runnables/EmscriptenRunnable.js). If it only received a wasm binary, it'll instanciate a [`WasmerRunnable`](https://github.com/cryptool-org/wasm-webterm/blob/master/src/runnables/WasmerRunnable.js). Both runnables setup the runtime required for the wasm execution and start the execution.
+The binary will then be passed to an instance of [`WasmRunner`](./src/runners/WasmRunner.js). If it receives both a wasm binary and a JS runtime, it'll instanciate an [`EmscrWasmRunnable`](./src/runnables/EmscriptenRunnable.js). If it only received a wasm binary, it'll instanciate a [`WasmerRunnable`](./src/runnables/WasmerRunnable.js). Both runnables setup the runtime required for the wasm execution and start the execution.
 
-> If WebWorker support is available (including [SharedArrayBuffer](https://caniuse.com/sharedarraybuffer)s and [Atomics](https://caniuse.com/mdn-javascript_builtins_atomics)), this will be wrapped into a [Worker thread](https://en.wikipedia.org/wiki/Web_worker) (see [`WasmWorker.js`](https://github.com/cryptool-org/wasm-webterm/blob/master/src/runners/WasmWorker.js)) using [Comlink](https://github.com/GoogleChromeLabs/comlink). This is done using a [Blob](https://en.wikipedia.org/wiki/Binary_large_object) instead of delivering a separate Worker JS file: When [importing `WasmWorker.js`](https://github.com/cryptool-org/wasm-webterm/blob/master/src/WasmWebTerm.js#L6), Webpack will prebuild/bundle all its dependencies and return it as `"asset/source"` (plain text) instead of a instantiable class. This is done using a [Webpack loader](https://github.com/cryptool-org/wasm-webterm/blob/master/worker.loader.js).
+> If WebWorker support is available (including [SharedArrayBuffer](https://caniuse.com/sharedarraybuffer)s and [Atomics](https://caniuse.com/mdn-javascript_builtins_atomics)), this will be wrapped into a [Worker thread](https://en.wikipedia.org/wiki/Web_worker) (see [`WasmWorker.js`](./src/runners/WasmWorker.js)) using [Comlink](https://github.com/GoogleChromeLabs/comlink). This is done using a [Blob](https://en.wikipedia.org/wiki/Binary_large_object) instead of delivering a separate Worker JS file: When [importing `WasmWorker.js`](./src/WasmWebTerm.js#L6), Webpack will prebuild/bundle all its dependencies and return it as `"asset/source"` (plain text) instead of a instantiable class. This is done using a [Webpack loader](./worker.loader.js).
 
-Communication between the `WasmRunner` and the xterm.js window is done trough [Comlink proxy callbacks](https://github.com/GoogleChromeLabs/comlink#callbacks), as they might be on different threads. For example, if the wasm binary asks for Stdin (while running on the worker thread), it'll be paused, the Comlink proxy [`_stdinProxy`](#_stdinproxymessage) is called, and the execution resumes after the proxy has finished.
+Communication between the `WasmRunner` and the xterm.js window is done trough [Comlink proxy callbacks](https://github.com/GoogleChromeLabs/comlink#callbacks), as they might be on different threads. For example, if the wasm binary asks for Stdin (while running on the worker thread), it'll be paused, the Comlink proxy [`_stdinProxy`](./src/WasmWebTerm.md#_stdinproxymessage) is called, and the execution resumes after the proxy has finished.
 
 > This pausing on the worker thread is done by using Atomics. That's why we rely on that browser support. The fallback (prompts) pauses the browser main thread by calling `window.prompt()`, which also blocks execution.
 
 When the execution has finished, the respective `onFinish(..)` callback is called and the REPL starts again.
 
 
+-----
+
+
+## [`WasmWebTerm.js`](./src/WasmWebTerm.js) Code API
+
+The code API of the main class `WasmWebterm` is documented in [src/WasmWebTerm.md](./src/WasmWebTerm.md).
+
+
+-----
+
+
 ## Defining custom JS commands
 
-In addition to running WebAssembly, you can also run JS commands on the terminal. You can register them with [`registerJsCommand(name, callback)`](#registerjscommandname-callback-autocomplete). When typing `name` into the terminal, the `callback` function is called.
+In addition to running WebAssembly, you can also run JS commands on the terminal. You can register them with [`registerJsCommand(name, callback)`](./src/WasmWebTerm.md#registerjscommandname-callback-autocomplete). When typing `name` into the terminal, the `callback` function is called.
 
 The `callback` function will receive `argv` (array) and `stdinPreset` (string) as input parameters. Output can be `return`ed, `resolve()`d or `yield`ed.
 
@@ -369,196 +362,11 @@ wasmterm.registerJsCommand("echo4", async function*(argv) {
 -----
 
 
-## [`WasmWebTerm.js`](https://github.com/cryptool-org/wasm-webterm/blob/master/src/WasmWebTerm.js) Code API
-
-The main class `WasmWebTerm`, located in `WasmWebTerm.js`, has some attributes and methods that you can use or overwrite to adapt its behaviour to your needs. You can see an [example on how we used it for OpenSSL](https://github.com/cryptool-org/openssl-webterm).
-
-For example, you can interact with the files in the filesystem, or change the welcome message, or write custom command with JS functions.
-
-> Private attributes or methods are indicated by an underscore (`_`). For example: [`_jsCommands`](#_jscommands) would be private while [`jsCommands`](#jscommands) would be public. You can of course use these none the less.
-
-To begin with, initialize a new instance of `WasmWebTerm`. Then overwrite its methods (if you want) and attach it to the xterm.js `Terminal`. Then you can execute methods on it.
-
-Here's an example for a webterm with custom welcome message and custom prompt. It then executes `[cowsay](https://wapm.io/syrusakbary/cowsay) hi`
-
-```js
-import { Terminal } from "xterm"
-import WasmWebTerm from "wasm-webterm"
-
-let term = new Terminal()
-let wasmterm = new WasmWebTerm()
-
-wasmterm.printWelcomeMessage = () => "Hello world shell \r\n"
-wasmterm._xtermPrompt = () => "custom> "
-
-term.loadAddon(wasmterm)
-term.open(document.getElementById("terminal"))
-
-wasmterm.runWasmCommand("cowsay", ["hi"])
-```
-
-
-### Public Attributes
-
-* #### `isRunningCommand`
-  Boolean value if the addon is currently running a command. Both using the `Terminal` or executing headless. This is to make sure, only a single command runs in parallel.
-
-* #### `jsCommands`
-  Getter for [`_jsCommands`](#_jscommands), a [`Map()`](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Map) containing JS commands that can be ran on the webterm.
-
-
-### Public Methods
-
-* #### async `repl()`
-  Starts a [Read Eval Print Loop](https://en.wikipedia.org/wiki/Read–eval–print_loop). It reads a line from the terminal, calls `onBeforeCommandRun()`, calls `runLine(line)` (which evaluates the line and runs the contained command), calls `onCommandRunFinish()`, and then recursively calls itself again (loop).
-
-* #### async `runLine(line)`
-  Gets a string (line), splits it into single commands (separated by `|`), and iterates over them. It then checks, if there is a JS function defined in [`_jsCommands`](#_jscommands) with the given command name. If there is, it'll execute it. See [defining custom JS commands](#defining-custom-js-commands) for more details. Otherwise, it will interpret the command name as the name of a WebAssembly binary and delegate to `runWasmCommand(..)` and `runWasmCommandHeadless(..)`.
-
-* #### `runWasmCommand(programName, argv, stdinPreset, onFinishCallback)`
-  The method for running single wasm commands on the Terminal. Only one command in parallel is allowed. It will call [`_getOrFetchWasmModule(name)`](#_getorfetchwasmmoduleprogramname) to fetch the according WebAssembly Module. It will then delegate the call to the Worker or the WasmRunner (which is the Prompts fallback). It also defines callback functions for when the wasm execution has finished or errored. It also passes (proxies to) `_stdout(val)`, `_stderr(val)`, and `_stdinProxy(msg)` to the WebAssembly binary. `stdinPreset` can be a string (when using pipes) or `null`. After the run (if successfull or on errors), `onFinishCallback()` will be called. This method can also be awaited instead of using the callback.
-
-* #### `runWasmCommandHeadless(programName, argv, stdinPreset, onFinishCallback)`
-  Same as `runWasmCommand(..)` but without writing to the Terminal. It does not pass proxies for input/output but buffers outputs and returns them in the callback. Errors will be printed though. This method can also be awaited instead of using the callback.
-
-* #### `registerJsCommand(name, callback, autocomplete)`
-  Registers a JS function in `callback` as to be called when the command with the name of `name` is entered into the Terminal. `autocomplete` does not work yet. These JS functions are also refered to as "user functions".
-
-  They're callback functions will receive `argv` (array) and `stdinPreset` (string) as input. `argv` contains the command parameters and `stdinPreset` contains the output of a previous command when using pipes).
-
-  They can pass outputs in 3 ways:
-
-  * Normally return a string via `return`
-  * Return a promise and use `resolve()` (async functions are fine too)
-  * Using `yield` in generator functions
-
-  See [defining custom JS commands](#defining-custom-js-commands) for examples.
-
-* #### `unregisterJsCommand(name)`
-  Counter part to [`registerJsCommand(..)`](#registerjscommandname-callback-autocomplete). Removes the entry from the Map.
-
-* #### async `printWelcomeMessage()`
-  Returns a string which is then printed to the Terminal on startup. This can be overwritten and is async so you could fetch something.
-
-
-### Event methods
-
-The following methods are called on specific events. You can overwrite them to customly handle the events.
-
-* #### async `onActivated()`
-  Is fired after the addon has been attached to the xterm.js Terminal instance. Usually triggered by including the Terminal into the DOM. It is called in the method `activate`, where the addon is being initialized.
-
-* #### async `onDisposed()`
-  The counter part to `onActivated` is called when the addon has been detached from the Terminal. Usually triggered by closing the tab or something.
-
-* #### async `onFileSystemUpdate(_wasmFsFiles)`
-  Is called every time the filesystem is being updated. This does not happen immediatly when a file is being written by the wasm binary, but when a command has been ran. Contains the value of `_wasmFsFiles`.
-
-* #### async `onBeforeCommandRun()`
-  Is called before every line/command ran via the REPL. Gives the opportunity to show loading animations or something like that.
-
-* #### async `onCommandRunFinish()`
-  Is called after a line/command has been ran via the REPL. Gives the opportunity to hide loading animations etc.
-
-
-### Private Attributes
-
-* #### `_xterm`
-  The local instance of xterm.js `Terminal` which the addon is attached to.
-
-* #### `_xtermEcho`
-  The local instance of `local-echo`, which provides the possibility to read from the Terminal.
-  > It also makes sense to look at the underlying [local-echo](https://github.com/wavesoft/local-echo). For example, its API offers the possibility to `.abortRead(reason)`, which exits the REPL.
-
-* #### `_xtermPrompt`
-  An async function that returns what is shown as prompt in the Terminal. Default is `$`.
-
-* #### `_jsCommands`
-  ES6 [`Map()`](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Map) containing JS commands in the form of `["command" => function(argv, stdin)]` (simplified). There is a getter called [`jsCommands`](#jscommands), so you don't need the underscore. This can be mutated by using [`registerJsCommand(..)`](#registerjscommandname-callback-autocomplete) and [`unregisterJsCommand(..)`]((#unregisterjscommand)).
-
-* #### `_worker`
-  Instance of [Comlink](https://github.com/GoogleChromeLabs/comlink) worker if there is support for Workers. Or the boolean value `false` if there is not and the Prompts Fallback is being used.
-
-* #### `_pauseBuffer`
-  [SharedArrayBuffer](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/SharedArrayBuffer) (1 bit) for pausing the Worker by using [Atomics](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Atomics). If the value is set to `1`, the worker will hold on its next call of `pauseExecution()` inside of [`WasmWorker`](https://github.com/cryptool-org/wasm-webterm/blob/master/src/runners/WasmWorker.js). It can then be resumed by setting the value to `0` again.
-
-* #### `_stdinBuffer`
-  [SharedArrayBuffer](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/SharedArrayBuffer) (1000 bit) for passing strings to the Worker which are then used as Stdin values. Zeros (0) mark the end of the string.
-
-* #### `_wasmRunner`
-  Instance of `WasmRunner` (see `WasmRunner.js`) that is being used as fallback, when Workers are not available. Also refered to as "Prompts Fallback", as it uses `window.prompt()` and runs on the main thread.
-
-* #### `_wasmModules`
-  Array of objects containing WebAssembly modules. The object structure is as follows. The `runtime` will only be set if it's an Emscripten binary and contain the JS code then.
-  ```json
-  [{ name: "<commandname>", type: "emscripten|wasmer", module: WebAssembly.Module, runtime: [optional] }]
-  ```
-
-* #### `_wasmFsFiles`
-  Array of objects containing the files from the virtual memory filesystem used for the wasm binaries encoded as binary data. The format is as follows:
-  ```json
-  [{ name: "<path/to/file.xyz>", timestamp: <unixtimestamp>, bytes: Uint8Array }]
-  ```
-
-* #### `_outputBuffer`
-  String that buffers both outputs (stdout and stderr). It is used to determine if a command's output has ended with a line break or not, thus one should be appended or not.
-
-* #### `_lastOutputTime`
-  Unix timestamp updated on every output (stdout and stderr). Worker outputs are not always rendered to the Terminal directly. Therefore we wait for like 80ms before we ask for Stdin or return control to the REPL.
-
-
-### Internal methods
-
-* #### async `activate(xterm)`
-  This is an [xterm.js addon life cycle method](https://xtermjs.org/docs/guides/using-addons/#creating-an-addon) and it's being called when the addon is loaded into the xterm.js Terminal instance. It loads the [xterm.js FitAddon](https://github.com/xtermjs/xterm.js/tree/master/addons/xterm-addon-fit) for dynamic Terminal resizing and the [`local-echo` addon](https://github.com/wavesoft/local-echo) for reading from the Terminal. It also initializes the drag&drop mechanism, registers default JS commands (`help` and `clear`), prints the welcome message, and starts the REPL.
-
-* #### async `dispose()`
-  Counter part to `activate(xterm)`. Disposes the FitAddon and `local-echo` and terminates the Worker.
-
-* #### `_onXtermData(data)`
-  Handler for data from the xterm.js Terminal. Whenever a user enters something, this method is called. It's currently only used for `Ctrl+C` but could be overwritten and extended.
-
-* #### `_getOrFetchWasmModule(programName)`
-  Fetches WebAssembly binaries and compiles them into WebAssembly Modules. Returns Promise to be awaited or handled by using `.then(wasmModule)`. If there already is a compiled module stored in `_wasmModules`, it will be used and nothing will be fetched. If there is none yet, it will fetch `<wasmBinaryPath>/<programName>.wasm` and validate if it's WebAssembly. If so, it will also try to fetch a JS runtime at `<wasmBinaryPath>/<programName>.js`. If it is found, the wasm binary is determined to be an Emscripten binary and the JS runtime is stored. If none is found, the wasm binary is considered a WASI binary. If no `.wasm` binary is found, it will query [wapm.io](https://wapm.io) and try to fetch a WASI binary from there.
-
-* #### `_initWasmModuleDragAndDrop()`
-  Registers event handlers for dragging and dropping WebAssembly binaries into the Terminal window. If binaries are dropped, they're compiled and added to `_wasmModules`.
-
-* #### `_initWorker()`
-  Creates [SharedArrayBuffer](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/SharedArrayBuffer)s (`_pauseBuffer` and `_stdinBuffer`) and creates a Comlink instance of the prebuilt `WasmWorker` bundle, which is being initialized as a Worker thread from a Blob. This Blob initialization only works because all dependencies are bundles into `worker.bundle.js` by Webpack.
-
-* #### `_resumeWorker()`
-  Sets the [SharedArrayBuffer](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/SharedArrayBuffer) `_pauseBuffer` to `0` which resumes the Worker if its locked in `WasmWorker`'s `pauseExecution()`.
-
-* #### `_terminateWorker()`
-  Immediately [terminates](https://developer.mozilla.org/docs/Web/API/Worker/terminate) the Worker thread. "This does not offer the worker an opportunity to finish its operations; it is stopped at once."
-
-* #### `_waitForOutputPause(pauseDuration = 80, interval = 20)`
-  Worker outputs are not always rendered to the Terminal directly. Therefore we wait for like 80ms before we ask for Stdin or return control to the REPL. `interval` determines the time between each check.
-
-* #### `_setStdinBuffer(string)`
-  Sets the value of `_stdinBuffer` to a given string, which can then be read from the Worker.
-
-* #### `_stdinProxy(message)`
-  Comlink Proxy which will be passed to the Worker thread. It will be called when the wasm binary reads from `/dev/stdin` or `/dev/tty`. It then reads a line from the xterm.js Terminal by using `local-echo`, sets the `_stdinBuffer` accordingly, and resumes the Worker.
-
-* #### `_stdoutProxy(value)` and `_stderrProxy(value)`
-  Comlink proxies that map to `_stdout(value)` and `_stderr(value)`. They're proxies so that we can pass them to the Worker. But they can also be called directly, so we can also pass them to the `WasmRunner` Prompts fallback.
-
-* #### `_stdout(value)`
-  Prints the string `value` to the xterm.js Terminal, stores it in the `_outputBuffer`, and updates `_lastOutputTime`. If `value` is a number, it will be interpreted as an ASCI char code and converted into a string.
-
-* #### `_stderr(value)`
-  Just maps to `_stdout(value)` but could be used to handle Stderr separatly.
-
-
------
-
-
 ## Contributing
 
-Any contributions are **greatly appreciated**. If you have a suggestion that would make this better, please open an issue or fork the repository and create a pull request.
+Any contributions are greatly appreciated. If you have a suggestion that would make this better, please open an issue or fork the repository and create a pull request.
+
 
 ## License
 
-Distributed under the [`Apache-2.0`](https://www.apache.org/licenses/LICENSE-2.0) License. See [`LICENSE`](https://github.com/cryptool-org/wasm-webterm/blob/master/LICENSE) for more information.
+Distributed under the [`Apache-2.0`](https://www.apache.org/licenses/LICENSE-2.0) License. See [`LICENSE`](./LICENSE) for more information.

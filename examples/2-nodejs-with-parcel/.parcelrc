@@ -1,0 +1,7 @@
+{
+  "extends": "@parcel/config-default",
+  "transformers": {
+    "*.lnk": ["@parcel/transformer-raw"],
+    "*.wasm": ["@parcel/transformer-raw"]
+  }
+}

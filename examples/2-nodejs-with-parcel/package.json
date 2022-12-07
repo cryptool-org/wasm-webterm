@@ -1,0 +1,17 @@
+{
+  "name": "wasm-webterm-nodejs-example",
+  "version": "1.0.0",
+  "description": "Example for how to use wasm-webterm in Node.js with Parcel",
+  "scripts": {
+    "parcel": "parcel ./index.html ../binaries/**/* --https && rm -rf dist .cache ../../.parcel-cache"
+  },
+  "author": "cryptool.org",
+  "license": "Apache-2.0",
+  "dependencies": {
+    "wasm-webterm": "file:../..",
+    "xterm": "^5.0.0"
+  },
+  "devDependencies": {
+    "parcel": "^2.8.0"
+  }
+}

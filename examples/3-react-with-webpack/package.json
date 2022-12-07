@@ -1,0 +1,29 @@
+{
+  "name": "wasm-webterm-react",
+  "version": "1.0.0",
+  "description": "React app to launch wasm-webterm",
+  "scripts": {
+    "webpack": "webpack serve --mode development",
+    "export": "rm -rf dist && webpack --mode production"
+  },
+  "dependencies": {
+    "@babel/core": "^7.17.5",
+    "@babel/preset-react": "^7.16.7",
+    "babel-loader": "^8.2.3",
+    "copy-webpack-plugin": "^10.2.4",
+    "css-loader": "^6.6.0",
+    "html-webpack-plugin": "^5.5.0",
+    "react": "^17.0.2",
+    "react-dom": "^17.0.2",
+    "style-loader": "^3.3.1",
+    "wasm-webterm": "file:../../",
+    "webpack": "^5.69.0",
+    "webpack-cli": "^4.9.2",
+    "webpack-dev-server": "^4.7.4"
+  },
+  "babel": {
+    "presets": [
+      "@babel/preset-react"
+    ]
+  }
+}

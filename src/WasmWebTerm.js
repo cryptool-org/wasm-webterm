@@ -399,7 +399,7 @@ class WasmWebTerm {
     _getOrFetchWasmModule(programName) {
         return new Promise(async (resolve, reject) => {
 
-            let wasmModule
+            let wasmModule, wasmBinary, localBinaryFound = false
 
             // check if there is an initialized module already
             this._wasmModules.forEach(moduleObj => {
@@ -410,37 +410,98 @@ class WasmWebTerm {
 
             else try { // if none is found -> initialize a new one
 
-                let response, wasmBinary
+                // create wasm module object (to resolve and to store)
                 wasmModule = { name: programName, type: "emscripten", module: undefined }
 
-                // only fetch when path submitted
-                if(this.wasmBinaryPath != undefined)
+                // try to find local wasm binary
+                // (only if wasmBinaryPath is provided, otherwise use wapm directly)
+                if(this.wasmBinaryPath != undefined) {
 
                     // try to fetch local wasm binaries first
-                    response = await fetch(this.wasmBinaryPath + "/" + programName + ".wasm")
+                    const localBinaryResponse = await fetch(this.wasmBinaryPath + "/" + programName + ".wasm")
+                    wasmBinary = await localBinaryResponse.arrayBuffer()
 
-                // if no path is submitted -> found = false
-                let localWasmBinaryFound = response?.ok || false
-
-                if(localWasmBinaryFound) { // if found
-
-                    // get binary array from response
-                    wasmBinary = await response.arrayBuffer()
-
-                    // check if is valid wasm binary (could also be 404 html)
-                    if(localWasmBinaryFound = WebAssembly.validate(wasmBinary)) {
+                    // validate if localBinaryResponse contains a wasm binary
+                    if(localBinaryResponse?.ok && WebAssembly.validate(wasmBinary)) {
 
                         // try to fetch emscripten js runtime
-                        response = await fetch(this.wasmBinaryPath + "/" + programName + ".js")
-                        if(response.ok) wasmModule.runtime = await response.arrayBuffer()
+                        const jsRuntimeResponse = await fetch(this.wasmBinaryPath + "/" + programName + ".js")
+                        if(jsRuntimeResponse?.ok) {
 
-                        // if none was found -> it's considered a wasmer binary
-                        else wasmModule.type = "wasmer"
+                            // read js runtime from response
+                            const jsRuntimeCode = await jsRuntimeResponse.arrayBuffer()
 
+                            // check if the first char of the response is not "<"
+                            // (because dumb parcel does not return http errors but an html page)
+                            const firstChar = String.fromCharCode(new Uint8Array(jsRuntimeCode).subarray(0, 1).toString())
+                            if(firstChar != "<")
+
+                            // set this module's runtime
+                            wasmModule.runtime = jsRuntimeCode
+                        }
+
+                        // if no valid js runtime was found -> it's considered a wasmer binary
+                        if(!wasmModule.runtime) wasmModule.type = "wasmer"
+
+                        // local binary was found -> do not fetch wapm
+                        localBinaryFound = true
+                    }
+
+                    // if none was found or it was invalid -> try for a .lnk file
+                    else {
+
+                        // explanation: .lnk files can contain a different module/runtime name.
+                        // this enables `echo` and `ls` to both use `coreutils.wasm`, for example.
+
+                        // try to fetch .lnk file
+                        const linkResponse = await fetch(this.wasmBinaryPath + "/" + programName + ".lnk")
+                        if(linkResponse?.ok) {
+
+                            // read new program name from .lnk file
+                            const linkedProgramName = await linkResponse.text()
+                            const linkDestination = this.wasmBinaryPath + "/" + linkedProgramName + ".wasm"
+
+                            // try to fetch the new binary
+                            const linkedBinaryResponse = await fetch(linkDestination)
+                            if(linkedBinaryResponse?.ok) {
+
+                                // read binary from response
+                                wasmBinary = await linkedBinaryResponse.arrayBuffer()
+
+                                // validate if linkedBinaryResponse contains a wasm binary
+                                if(WebAssembly.validate(wasmBinary)) {
+
+                                    // try to fetch emscripten js runtime
+                                    const jsRuntimeResponse = await fetch(this.wasmBinaryPath + "/" + linkedProgramName + ".js")
+                                    if(jsRuntimeResponse?.ok) {
+
+                                        // todo: note that this code is redundant, maybe use a function?
+
+                                        // read js runtime from response
+                                        const jsRuntimeCode = await jsRuntimeResponse.arrayBuffer()
+
+                                        // check if the first char of the response is not "<"
+                                        // (because dumb parcel does not return http errors but an html page)
+                                        const firstChar = String.fromCharCode(new Uint8Array(jsRuntimeCode).subarray(0, 1).toString())
+                                        if(firstChar != "<")
+
+                                        // set this module's runtime
+                                        wasmModule.runtime = jsRuntimeCode
+                                    }
+
+                                    // if no valid js runtime was found -> it's considered a wasmer binary
+                                    if(!wasmModule.runtime) wasmModule.type = "wasmer"
+
+                                    // local binary was found -> do not fetch wapm
+                                    localBinaryFound = true
+                                }
+                            }
+                        }
                     }
                 }
 
-                if(!localWasmBinaryFound) { // if no local binary was found -> fetch from wapm.io
+                // if no local binary was found -> fetch from wapm.io
+                if(!localBinaryFound) {
                     wasmBinary = await WapmFetchUtil.getWasmBinaryFromCommand(programName)
                     wasmModule.type = "wasmer"
                 }
@@ -488,6 +549,8 @@ class WasmWebTerm {
             // parse dropped files into modules
             for(let i = 0; i < files.length; i++) {
                 const file = files[i]; if(file.name.endsWith(".wasm")) {
+
+                    // todo: also support dropping .lnk files?
 
                     const programName = file.name.replace(/\.wasm$/, "")
 

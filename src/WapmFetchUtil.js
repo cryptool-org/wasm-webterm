@@ -184,6 +184,8 @@ class WapmFetchUtil {
         if(wasmerFiles.length > 1) throw Error("more than 1 wasm file, don't know what to do :D")
         const wasmModule = wasmerFiles[0].buffer // await lowerI64Imports(wasmerFiles[0].buffer)
 
+        // todo: there is a file "wapm.toml" that contains info about which command uses which module/binary
+
         return wasmModule
     }
 

@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html>
+    <head>
+
+        <!-- import xterm.js stylesheet -->
+        <link rel="stylesheet" href="../../node_modules/xterm/css/xterm.css" />
+
+    </head>
+    <body>
+
+        <!-- xterm.js spawnpoint -->
+        <div id="terminal"></div>
+
+        <!-- include your node.js script -->
+        <script src="./index.js" type="module"></script>
+
+        <!-- apply some style (full width and height) -->
+        <style>
+            html, body { margin: 0; padding: 0; background: #000; }
+            .xterm.terminal { height: calc(100vh - 2rem); padding: 1rem; }
+        </style>
+
+      </body>
+</html>

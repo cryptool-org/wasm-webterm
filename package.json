@@ -16,8 +16,8 @@
     "js",
     "javascript"
   ],
-  "author": "",
-  "license": "UNLICENSED",
+  "author": "cryptool.org",
+  "license": "Apache-2.0",
   "dependencies": {
     "@wasmer/wasi": "^0.12.0",
     "@wasmer/wasm-transformer": "^0.12.0",
