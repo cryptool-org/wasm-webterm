@@ -48,12 +48,14 @@ class EmscrWasmRunnable {
                 emscrModule.TTY.register(emscrModule.FS.makedev(5, 0), {
                     get_char: tty => stdin(tty),
                     put_char: (tty, val) => { tty.output.push(val); stdout(val) },
-                    flush: tty => tty.output = []
+                    flush: tty => tty.output = [],
+                    fsync: tty => console.log("fsynced stdout (EmscriptenRunnable does nothing in this case)")
                 })
                 emscrModule.TTY.register(emscrModule.FS.makedev(6, 0), {
                     get_char: tty => stdin(tty),
                     put_char: (tty, val) => { tty.output.push(val); stderr(val) },
-                    flush: tty => tty.output = []
+                    flush: tty => tty.output = [],
+                    fsync: tty => console.log("fsynced stderr (EmscriptenRunnable does nothing in this case)")
                 })
             }]
         }

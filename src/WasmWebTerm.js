@@ -310,7 +310,7 @@ class WasmWebTerm {
         })
 
         // define callback for when errors occur
-        const onError = Comlink.proxy(this._stderr.bind(this))
+        const onError = Comlink.proxy(value => this._stderr(value))
 
         // get or initialize wasm module
         this._stdout("loading web assembly ...")
@@ -364,7 +364,7 @@ class WasmWebTerm {
         })
 
         // define callback for when errors occur
-        const onError = Comlink.proxy(this._stderr)
+        const onError = Comlink.proxy(value => this._stderr(value))
 
         // define callback for onSuccess (contains files)
         const onSuccess = Comlink.proxy(() => {}) // not used currently
@@ -687,7 +687,21 @@ class WasmWebTerm {
         this._xterm.write(value)
     }
 
-    _stderr = this._stdout
+    _stderr(value) {
+
+        // check if it's a javascript error
+        if(value instanceof Error) {
+
+            // log error to the console
+            console.error("stderr error:", value)
+
+            // convert error object to string
+            value = value.toString() + "\n"
+        }
+
+        // print to terminal
+        this._stdout(value)
+    }
 
     async printWelcomeMessage() {
         let message = `\x1b[1;32m
