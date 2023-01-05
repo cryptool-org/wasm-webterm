@@ -100,15 +100,12 @@ class WasmWebTerm {
 
 
         // register available js commands
-
         this.registerJsCommand("help", async function*(argv) {
             yield "todo: show helping things"
         })
-
-        this.registerJsCommand("clear", async (argv) => {
-            // clear entire terminal, print welcome message, clear last two linebreaks
-            return "\u001b[2J\u001b[0;0H" + (await this.printWelcomeMessage()) + "\x1B[A\x1B[A"
-        })
+        this.registerJsCommand("clear",
+            async (argv) => await this.printWelcomeMessagePlusControlSequences()
+        )
 
 
         // if using webworker -> wait until initialized
@@ -122,7 +119,8 @@ class WasmWebTerm {
         await this.onActivated()
 
         // write welcome message to terminal
-        this._xterm.write(await this.printWelcomeMessage())
+        this._xterm.write(await this.printWelcomeMessagePlusControlSequences() + "\r\n")
+        // (the extra linebreak is to have the same output as this._stdout which `clear` uses)
 
         // start REPL
         this.repl()
@@ -715,9 +713,15 @@ class WasmWebTerm {
         message += "You can also define and run custom JavaScript functions.\r\n\r\n"
 
         message += "Commands: " + [...this._jsCommands].map(commandObj => commandObj[0]).sort().join(", ") + ". "
-        message += "Backend: " + (this._worker ? "WebWorker" : "Prompts Fallback") + ".\r\n\r\n"
+        message += "Backend: " + (this._worker ? "WebWorker" : "Prompts Fallback") + "."
 
         return message
+    }
+
+    // helper function to cleanly print the welcome message
+    async printWelcomeMessagePlusControlSequences() {
+        // clear terminal, reset color, print welcome message, reset color, add empty line
+        return "\x1Bc" + "\x1b[0;37m" + (await this.printWelcomeMessage()) + "\x1b[0;37m\r\n"
     }
 
     _onXtermData(data) {
