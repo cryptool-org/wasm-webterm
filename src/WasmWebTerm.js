@@ -119,14 +119,19 @@ class WasmWebTerm {
         await this.onActivated()
 
         // write welcome message to terminal
-        this._xterm.write(await this.printWelcomeMessagePlusControlSequences() + "\r\n")
-        // (the extra linebreak is to have the same output as this._stdout which `clear` uses)
+        this._xterm.writeln(await this.printWelcomeMessagePlusControlSequences(),
 
-        // start REPL
-        this.repl()
+            // callback for when welcome message was printed
+            () => {
 
-        // focus terminal cursor
-        setTimeout(() => this._xterm.focus(), 1)
+                // start REPL
+                this.repl()
+
+                // focus terminal cursor
+                setTimeout(() => this._xterm.focus(), 1)
+
+            }
+        )
 
     }
 
@@ -721,7 +726,7 @@ class WasmWebTerm {
     // helper function to cleanly print the welcome message
     async printWelcomeMessagePlusControlSequences() {
         // clear terminal, reset color, print welcome message, reset color, add empty line
-        return "\x1Bc" + "\x1b[0;37m" + (await this.printWelcomeMessage()) + "\x1b[0;37m\r\n"
+        return "\x1bc" + "\x1b[0;37m" + (await this.printWelcomeMessage()) + "\x1b[0;37m\r\n"
     }
 
     _onXtermData(data) {
