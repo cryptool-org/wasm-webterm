@@ -7,7 +7,7 @@
 </div>
 &nbsp;
 
-Run your [WebAssembly](https://webassembly.org) binaries on a terminal/tty emulation in your browser. [Emscripten](https://emscripten.org) and [WASI](https://github.com/WebAssembly/WASI) are supported. This project is developed as an addon for [xterm.js](https://github.com/xtermjs/xterm.js) v4, so you can easily use it in your own projects.
+Run your [WebAssembly](https://webassembly.org) binaries on a terminal/tty emulation in your browser. [Emscripten](https://emscripten.org) and [WASI](https://github.com/WebAssembly/WASI) are supported. This project is developed as an addon for [xterm.js](https://github.com/xtermjs/xterm.js) v4+, so you can easily use it in your own projects.
 
 > It originated from the [CrypTool project](https://www.cryptool.org) in 2022 for [running OpenSSL v3 in a browser](https://github.com/cryptool-org/openssl-webterm).
 
