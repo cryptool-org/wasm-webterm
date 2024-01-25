@@ -138,7 +138,7 @@ class WasmWebTerm {
     async dispose() {
         await this._xtermEcho.dispose()
         await this._xtermFitAddon.dispose()
-        if(this._worker) this._workerRAW.terminate()
+        if(this._worker) this._terminateWorker()
         await this.onDisposed()
     }
 
@@ -717,8 +717,9 @@ class WasmWebTerm {
         message += "Run WebAssembly binaries compiled with Emscripten or Wasmer.\r\n"
         message += "You can also define and run custom JavaScript functions.\r\n\r\n"
 
+        message += "Version: " + __VERSION__ + ". "
+        message += "Backend: " + (this._worker ? "WebWorker" : "Prompts Fallback") + ".\r\n"
         message += "Commands: " + [...this._jsCommands].map(commandObj => commandObj[0]).sort().join(", ") + ". "
-        message += "Backend: " + (this._worker ? "WebWorker" : "Prompts Fallback") + "."
 
         return message
     }

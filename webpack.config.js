@@ -18,6 +18,9 @@ module.exports = {
         new webpack.ProvidePlugin({
             Buffer: ["buffer", "Buffer"],
             process: "process/browser"
+        }),
+        new webpack.DefinePlugin({
+            __VERSION__: JSON.stringify(process.env.npm_package_version),
         })
     ],
     module: {
