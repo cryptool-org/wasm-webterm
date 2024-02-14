@@ -6,32 +6,34 @@
 const webpack = require("webpack")
 
 module.exports = {
-    entry: {
-        WasmWebTerm: "./src/WasmWebTerm.js"
-    },
-    output: {
-        path: __dirname,
-        filename: "webterm.bundle.js",
-        library: { type: "umd", name: "[name]" }
-    },
-    plugins: [
-        new webpack.ProvidePlugin({
-            Buffer: ["buffer", "Buffer"],
-            process: "process/browser"
-        }),
-        new webpack.DefinePlugin({
-            __VERSION__: JSON.stringify(process.env.npm_package_version),
-        })
+  entry: {
+    WasmWebTerm: "./src/WasmWebTerm.js",
+  },
+  output: {
+    path: __dirname,
+    filename: "webterm.bundle.js",
+    library: { type: "umd", name: "[name]" },
+  },
+  plugins: [
+    new webpack.ProvidePlugin({
+      Buffer: ["buffer", "Buffer"],
+      process: "process/browser",
+    }),
+    new webpack.DefinePlugin({
+      __VERSION__: JSON.stringify(process.env.npm_package_version),
+    }),
+  ],
+  module: {
+    rules: [
+      {
+        test: __dirname + "/src/runners/WasmWorker.js",
+        use: [{ loader: "worker-loader" }],
+        type: "asset/source",
+      },
     ],
-    module: {
-        rules: [{
-            test: __dirname + "/src/runners/WasmWorker.js",
-            use: [{ loader: "worker-loader" }],
-            type: "asset/source"
-        }]
-    },
-    resolveLoader: {
-        alias: { "worker-loader": __dirname + "/worker.loader.js" }
-    },
-    devtool: "source-map"
+  },
+  resolveLoader: {
+    alias: { "worker-loader": __dirname + "/worker.loader.js" },
+  },
+  devtool: "source-map",
 }
