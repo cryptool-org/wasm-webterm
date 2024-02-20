@@ -79,6 +79,7 @@ class WasmRunner {
       let wasmerExe = new WasmerRunnable(programName, wasmModule)
 
       // pipe stdin calls through stdin handler (which pauses thread)
+      this._wasmerStdinCallCounter = 0
       const stdinHandler = (stdinBuffer) =>
         this._onWasmerStdinCall(
           stdinBuffer,
@@ -211,7 +212,9 @@ class WasmRunner {
     stdoutProxy(input + "\r\n")
 
     // copy input value to stdinBuffer
-    input.forEach((char, i) => (stdinBuffer[i] = char.charCodeAt(0)))
+    Array.from(input).forEach(
+      (char, i) => (stdinBuffer[i] = char.charCodeAt(0))
+    )
 
     // indicate we've read once
     this._wasmerStdinCallCounter++

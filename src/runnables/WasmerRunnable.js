@@ -55,7 +55,6 @@ class WasmerRunnable {
 
       if (typeof stdinPreset != "string")
         stdinPreset = (stdinPreset || "").toString()
-      if (!stdinPreset.endsWith("\n")) stdinPreset += "\n" // must end with \n
 
       let stdinCallCounter = 0
       wasmFs.volume.fds[0].node.read = (stdinBuffer) => {

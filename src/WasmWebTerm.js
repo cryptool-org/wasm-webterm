@@ -772,16 +772,42 @@ class WasmWebTerm {
     this._waitForOutputPause().then(async () => {
       console.log("called _stdinProxy", message)
 
-      // read new line of input
-      this._xterm.write("\r\x1B[K") // clear last line
-      const input = await this._xtermEcho.read(message)
+      // read input until CTRL+D (EOF) or CTRL+C
+      const input = await new Promise((resolve, reject) => {
+        let buffer = ""
+        const handler = this._xterm.onData((data) => {
+          // CTRL + C -> return without data
+          if (data == "\x03") {
+            this._xterm.write("^C")
+            handler.dispose()
+            return resolve("")
+          }
+          // CTRL + D -> return input buffer
+          else if (data == "\x04") {
+            handler.dispose()
+            return resolve(buffer)
+          }
 
-      // remove submitted input from command history
-      this._xtermEcho.history.entries.pop()
-      this._xtermEcho.history.cursor--
+          // map return to '\n'
+          if (data == "\r") data = "\n"
+          // map backspace to CTRL+H
+          else if (data == "\x7f") data = "\x08"
+
+          // add character or delete last one
+          if (data == "\x08") buffer = buffer.slice(0, -1)
+          else buffer += data
+
+          // echo input back (special handling for return, backspace, and escape sequences)
+          if (data == "\n") this._xterm.write("\r\n")
+          else if (data == "\x08") this._xterm.write("^H")
+          else if (data.charCodeAt(0) == 0x1b)
+            this._xterm.write("^[" + data.slice(1))
+          else this._xterm.write(data)
+        })
+      })
 
       // pass value to webworker
-      this._setStdinBuffer(input + "\n")
+      this._setStdinBuffer(input)
       this._resumeWorker()
     })
   })

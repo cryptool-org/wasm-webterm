@@ -91,7 +91,6 @@ class EmscrWasmRunnable {
 
       if (typeof stdinPreset != "string")
         stdinPreset = (stdinPreset || "").toString()
-      if (!stdinPreset.endsWith("\n")) stdinPreset += "\n" // must end with \n
 
       let stdinIndex = 0
       emscrModule.stdin = () => {
