@@ -4,6 +4,7 @@ import { FitAddon } from "xterm-addon-fit"
 import XtermEchoAddon from "local-echo"
 import parse from "shell-quote/parse"
 
+import LineBuffer from "./LineBuffer"
 import WasmWorkerRAW from "./runners/WasmWorker" // will be prebuilt using webpack
 import { default as PromptsFallback } from "./runners/WasmRunner"
 import WapmFetchUtil from "./WapmFetchUtil"
@@ -28,6 +29,9 @@ class WasmWebTerm {
   _jsCommands
   _wasmModules
   _wasmFsFiles
+
+  _stdoutBuffer
+  _stderrBuffer
 
   _outputBuffer
   _lastOutputTime
@@ -170,11 +174,11 @@ class WasmWebTerm {
       // eval and print
       await this.runLine(line)
 
+      // print extra newline if output does not end with one
+      if (this._outputBuffer.slice(-1) != "\n") this._xterm.write("\u23CE\r\n")
+
       // print newline after
       this._xterm.write("\r\n")
-
-      // print extra newline if outputs does not end with one
-      if (this._outputBuffer.slice(-1) != "\n") this._xterm.write("\r\n")
 
       // give user possibility to run sth after exec
       await this.onCommandRunFinish()
@@ -311,7 +315,8 @@ class WasmWebTerm {
       }
     } catch (e) {
       // catch errors (print to terminal and developer console)
-      this._xterm.write(e)
+      if (this._outputBuffer.slice(-1) != "\n") this._stderr("\n")
+      this._stderr(`\x1b[1m[\x1b[31mERROR\x1b[39m]\x1b[0m ${e.toString()}\n`)
       console.error("Error running line:", e)
     }
   }
@@ -339,6 +344,10 @@ class WasmWebTerm {
       this._wasmFsFiles = files
       await this.onFileSystemUpdate(this._wasmFsFiles)
 
+      // flush outputs
+      this._stdoutBuffer.flush()
+      this._stderrBuffer.flush()
+
       // wait until outputs are rendered
       this._waitForOutputPause().then(() => {
         // notify caller that command run is over
@@ -350,7 +359,7 @@ class WasmWebTerm {
     })
 
     // define callback for when errors occur
-    const onError = Comlink.proxy((value) => this._stderr(value))
+    const onError = Comlink.proxy((value) => this._stderr(value + "\n"))
 
     // get or initialize wasm module
     this._stdout("loading web assembly ...")
@@ -400,7 +409,7 @@ class WasmWebTerm {
       // catch errors (command not running anymore + reject (returns to shell))
       .catch((e) => {
         this.isRunningCommand = false
-        this._runWasmCommandPromise?.reject("\r\n" + e)
+        this._runWasmCommandPromise?.reject(e)
       })
 
     // return promise (makes shell await)
@@ -421,6 +430,10 @@ class WasmWebTerm {
       // enable commands to run again
       this.isRunningCommand = false
 
+      // flush outputs
+      this._stdoutBuffer.flush()
+      this._stderrBuffer.flush()
+
       // call on finish callback
       if (typeof onFinishCallback == "function") onFinishCallback(outBuffers)
 
@@ -429,7 +442,7 @@ class WasmWebTerm {
     })
 
     // define callback for when errors occur
-    const onError = Comlink.proxy((value) => this._stderr(value))
+    const onError = Comlink.proxy((value) => this._stderr(value + "\n"))
 
     // define callback for onSuccess (contains files)
     const onSuccess = Comlink.proxy(() => {}) // not used currently
@@ -812,10 +825,13 @@ class WasmWebTerm {
     })
   })
 
-  _stdoutProxy = Comlink.proxy((value) => this._stdout(value))
-  _stderrProxy = Comlink.proxy((value) => this._stderr(value))
+  _stdoutProxy = Comlink.proxy((value) => this._stdoutBuffer.write(value))
+  _stderrProxy = Comlink.proxy((value) => this._stderrBuffer.write(value))
 
   /* input output handling -> term */
+
+  _stdoutBuffer = new LineBuffer(this._stdout.bind(this))
+  _stderrBuffer = new LineBuffer(this._stderr.bind(this))
 
   _stdout(value) {
     // string or char code
