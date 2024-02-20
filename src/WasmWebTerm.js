@@ -2,6 +2,7 @@ import * as Comlink from "comlink"
 
 import { FitAddon } from "xterm-addon-fit"
 import XtermEchoAddon from "local-echo"
+import parse from "shell-quote/parse"
 
 import WasmWorkerRAW from "./runners/WasmWorker" // will be prebuilt using webpack
 import { default as PromptsFallback } from "./runners/WasmRunner"
@@ -186,18 +187,70 @@ class WasmWebTerm {
   }
 
   /* parse line as commands and handle them */
+  _parseCommands(line) {
+    let usesEnvironmentVars = false
+    let usesBashFeatures = false
+
+    // parse line into tokens (respect escaped spaces and quotation marks)
+    const commandLine = parse(line, (_key) => {
+      usesEnvironmentVars = true
+      return undefined
+    })
+
+    const commands = []
+    let cmd = []
+
+    splitter: {
+      for (let idx = 0; idx < commandLine.length; ++idx) {
+        const item = commandLine[idx]
+
+        if (typeof item === "string") {
+          if (item.match(/^\w+=.*$/)) {
+            usesEnvironmentVars = true
+            continue
+          } else {
+            cmd.push(item)
+          }
+        } else {
+          switch (item.op) {
+            case "|":
+              commands.push(cmd)
+              cmd = []
+              break
+            default:
+              usesBashFeatures = true
+              console.error("Unsupported shell operator:", item.op)
+              break splitter
+          }
+        }
+      }
+    }
+    commands.push(cmd)
+
+    if (usesEnvironmentVars) {
+      this._stderr(
+        "\x1b[1m[\x1b[33mWARN\x1b[39m]\x1b[0m Environment variables are not supported!\n"
+      )
+    }
+    if (usesBashFeatures) {
+      this._stderr(
+        "\x1b[1m[\x1b[33mWARN\x1b[39m]\x1b[0m Advanced bash features are not supported! Only the pipe '|' works for now.\n"
+      )
+    }
+
+    return commands
+  }
 
   async runLine(line) {
     try {
       let stdinPreset = null
       this._suppressOutputs = false
 
-      const commandsInLine = line.split("|") // respecting pipes // TODO: <, >, &
-      for (const [index, commandString] of commandsInLine.entries()) {
-        // parse command string into command name and argv
-        const argv = commandString.split(/[\s]{1,}/g).filter(Boolean)
-        const commandName = argv.shift(),
-          command = this._jsCommands.get(commandName)
+      const commandsInLine = this._parseCommands(line)
+      for (const [index, argv] of commandsInLine.entries()) {
+        // split into command name and argv
+        const commandName = argv.shift()
+        const command = this._jsCommands.get(commandName)
 
         // try user registered js commands first
         if (typeof command?.callback == "function") {
