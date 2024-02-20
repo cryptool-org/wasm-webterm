@@ -1,4 +1,4 @@
-import * as Comlink from "comlink"
+import { proxy, wrap } from "comlink"
 
 import { FitAddon } from "xterm-addon-fit"
 import XtermEchoAddon from "local-echo"
@@ -334,7 +334,7 @@ class WasmWebTerm {
     this._outputBuffer = ""
 
     // define callback for when command has finished
-    const onFinish = Comlink.proxy(async (files) => {
+    const onFinish = proxy(async (files) => {
       console.log("command finished:", programName, argv)
 
       // enable commands to run again
@@ -359,7 +359,7 @@ class WasmWebTerm {
     })
 
     // define callback for when errors occur
-    const onError = Comlink.proxy((value) => this._stderr(value + "\n"))
+    const onError = proxy((value) => this._stderr(value + "\n"))
 
     // get or initialize wasm module
     this._stdout("loading web assembly ...")
@@ -426,7 +426,7 @@ class WasmWebTerm {
     let runWasmCommandHeadlessPromise = { resolve: () => {}, reject: () => {} }
 
     // define callback for when command has finished
-    const onFinish = Comlink.proxy((outBuffers) => {
+    const onFinish = proxy((outBuffers) => {
       // enable commands to run again
       this.isRunningCommand = false
 
@@ -442,10 +442,10 @@ class WasmWebTerm {
     })
 
     // define callback for when errors occur
-    const onError = Comlink.proxy((value) => this._stderr(value + "\n"))
+    const onError = proxy((value) => this._stderr(value + "\n"))
 
     // define callback for onSuccess (contains files)
-    const onSuccess = Comlink.proxy(() => {}) // not used currently
+    const onSuccess = proxy(() => {}) // not used currently
 
     // get or initialize wasm module
     this._getOrFetchWasmModule(programName)
@@ -740,7 +740,7 @@ class WasmWebTerm {
 
       // init webworker from blob (no separate file)
       this._workerRAW = new Worker(URL.createObjectURL(blob))
-      const WasmWorker = Comlink.wrap(this._workerRAW)
+      const WasmWorker = wrap(this._workerRAW)
       this._worker = await new WasmWorker(this._pauseBuffer, this._stdinBuffer)
 
       resolve(this._worker) // webworker is now initialized
@@ -781,7 +781,7 @@ class WasmWebTerm {
       this._stdinBuffer[i] = string[i] ? string[i].charCodeAt(0) : 0 // 0 = null (empty bits = end of string)
   }
 
-  _stdinProxy = Comlink.proxy((message) => {
+  _stdinProxy = proxy((message) => {
     this._waitForOutputPause().then(async () => {
       console.log("called _stdinProxy", message)
 
@@ -825,8 +825,8 @@ class WasmWebTerm {
     })
   })
 
-  _stdoutProxy = Comlink.proxy((value) => this._stdoutBuffer.write(value))
-  _stderrProxy = Comlink.proxy((value) => this._stderrBuffer.write(value))
+  _stdoutProxy = proxy((value) => this._stdoutBuffer.write(value))
+  _stderrProxy = proxy((value) => this._stderrBuffer.write(value))
 
   /* input output handling -> term */
 

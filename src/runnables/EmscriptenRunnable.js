@@ -5,7 +5,7 @@ class EmscrWasmRunnable {
   programName
   wasmModule
 
-  _emscrJsRuntime
+  #emscrJsRuntime
 
   constructor(programName, wasmModule, jsRuntime) {
     this.programName = programName
@@ -101,7 +101,7 @@ class EmscrWasmRunnable {
     }
 
     let filesPostRun // instantiate emscripten module and call main
-    this._emscrJsRuntime(emscrModule)
+    this.#emscrJsRuntime(emscrModule)
       .then((instance) => {
         // emscr module instance
 
@@ -231,7 +231,7 @@ class EmscrWasmRunnable {
       console.log(jsRuntime, blob)
 
       // read emscripten Module from js runtime
-      this._emscrJsRuntime =
+      this.#emscrJsRuntime =
         self[emscrJsModuleName] || self["_createPyodideModule"]
       // todo: find better solution for module names
     }
@@ -253,7 +253,7 @@ class EmscrWasmRunnable {
       }
 
       // read emscripten Module from js runtime
-      this._emscrJsRuntime = window[emscrJsModuleName]
+      this.#emscrJsRuntime = window[emscrJsModuleName]
     } else throw new Error("can not load emscr js runtime environment")
   }
 
