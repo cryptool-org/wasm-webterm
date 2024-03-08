@@ -1,11 +1,15 @@
 {
   "name": "wasm-webterm",
-  "version": "0.0.5",
+  "version": "0.0.6",
   "description": "xterm.js addon to run webassembly binaries (emscripten + wasmer)",
-  "files": ["webterm.bundle.js", "webterm.bundle.js.map"],
+  "files": [
+    "webterm.bundle.js",
+    "webterm.bundle.js.map"
+  ],
   "main": "webterm.bundle.js",
   "scripts": {
-    "build": "webpack --mode production && rm -rf ./*.LICENSE.*"
+    "build": "webpack --mode production && rm -rf ./*.LICENSE.*",
+    "dev": "webpack watch --mode development"
   },
   "keywords": [
     "xterm.js",
@@ -23,16 +27,21 @@
     "@wasmer/wasi": "^0.12.0",
     "@wasmer/wasm-transformer": "^0.12.0",
     "@wasmer/wasmfs": "^0.12.0",
-    "comlink": "^4.3.1",
+    "comlink": "^4.4.1",
     "js-untar": "^2.0.0",
     "local-echo": "github:wavesoft/local-echo",
-    "pako": "^2.0.4",
+    "pako": "^2.1.0",
+    "shell-quote": "^1.8.1",
     "xterm-addon-fit": "^0.5.0"
   },
   "devDependencies": {
-    "memfs": "^3.4.1",
+    "memfs": "^3.5.3",
+    "prettier": "^3.2.5",
     "process": "^0.11.10",
-    "webpack": "^5.69.1",
-    "webpack-cli": "^4.9.2"
+    "webpack": "^5.90.3",
+    "webpack-cli": "^5.1.4"
+  },
+  "peerDependencies": {
+    "xterm": ">4.9.0 <=4.19.0"
   }
 }
