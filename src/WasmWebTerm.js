@@ -101,7 +101,16 @@ class WasmWebTerm {
 
     // register available js commands
     this.registerJsCommand("help", async function* (argv) {
-      yield "todo: show helping things"
+      yield "todo: show helping things\n"
+    })
+    this.registerJsCommand("about", async (argv) => {
+      return (
+        "Wasm-WebTerm version " +
+        __VERSION__ +
+        ".\nBackend: " +
+        (this._worker ? "WebWorker" : "Prompts Fallback") +
+        ".\n"
+      )
     })
     this.registerJsCommand(
       "clear",
@@ -209,7 +218,7 @@ class WasmWebTerm {
         const item = commandLine[idx]
 
         if (typeof item === "string") {
-          if (item.match(/^\w+=.*$/)) {
+          if (cmd.length === 0 && item.match(/^\w+=.*$/)) {
             usesEnvironmentVars = true
             continue
           } else {
