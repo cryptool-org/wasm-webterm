@@ -209,7 +209,7 @@ class WasmWebTerm {
         const item = commandLine[idx]
 
         if (typeof item === "string") {
-          if (item.match(/^\w+=.*$/)) {
+          if (cmd.length === 0 && item.match(/^\w+=.*$/)) {
             usesEnvironmentVars = true
             continue
           } else {
