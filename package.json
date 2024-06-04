@@ -1,6 +1,6 @@
 {
   "name": "wasm-webterm",
-  "version": "0.0.7",
+  "version": "0.0.8",
   "description": "xterm.js addon to run webassembly binaries (emscripten + wasmer)",
   "files": [
     "webterm.bundle.js",
