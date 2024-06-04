@@ -353,11 +353,14 @@ class WasmWebTerm {
       this._wasmFsFiles = files
       await this.onFileSystemUpdate(this._wasmFsFiles)
 
-      // flush outputs
+      // wait until outputs are rendered
+      await this._waitForOutputPause()
+
+      // flush out any pending outputs
       this._stdoutBuffer.flush()
       this._stderrBuffer.flush()
 
-      // wait until outputs are rendered
+      // wait until the rest is rendered
       this._waitForOutputPause().then(() => {
         // notify caller that command run is over
         if (typeof onFinishCallback == "function") onFinishCallback()
@@ -794,7 +797,11 @@ class WasmWebTerm {
     this._waitForOutputPause().then(async () => {
       console.log("called _stdinProxy", message)
 
-      // read input until CTRL+D (EOF) or CTRL+C
+      // flush outputs (to show the prompt)
+      this._stdoutBuffer.flush()
+      this._stderrBuffer.flush()
+
+      // read input until RETURN (LF), CTRL+D (EOF), or CTRL+C
       const input = await new Promise((resolve, reject) => {
         let buffer = ""
         const handler = this._xterm.onData((data) => {
@@ -819,9 +826,17 @@ class WasmWebTerm {
           if (data == "\x08") buffer = buffer.slice(0, -1)
           else buffer += data
 
-          // echo input back (special handling for return, backspace, and escape sequences)
-          if (data == "\n") this._xterm.write("\r\n")
-          else if (data == "\x08") this._xterm.write("^H")
+          // line complete -> return the input buffer
+          if (data == "\n") {
+            // only echo the linebreak when there is no prompt (i.e. we assume multi-line input)
+            if (!message) this._xterm.write("\r\n")
+
+            handler.dispose()
+            return resolve(buffer)
+          }
+
+          // echo input back (special handling for backspace and escape sequences)
+          if (data == "\x08") this._xterm.write("^H")
           else if (data.charCodeAt(0) == 0x1b)
             this._xterm.write("^[" + data.slice(1))
           else this._xterm.write(data)

@@ -79,7 +79,6 @@ class WasmRunner {
       let wasmerExe = new WasmerRunnable(programName, wasmModule)
 
       // pipe stdin calls through stdin handler (which pauses thread)
-      this._wasmerStdinCallCounter = 0
       const stdinHandler = (stdinBuffer) =>
         this._onWasmerStdinCall(
           stdinBuffer,
@@ -175,11 +174,9 @@ class WasmRunner {
       // if aborted -> end
       if (input == null) return null
 
-      // if input was empty -> prompt again
-      // if(input == "") return this._onEmscrStdinCall(tty)
-
       // print input to terminal
-      stdoutProxy(input + "\r\n")
+      stdoutProxy(input)
+      if (!promptCaption) stdoutProxy("\r\n")
 
       // copy input value to tty input
       tty.input = (input + "\n").split("").map((char) => char.charCodeAt(0))
@@ -191,14 +188,7 @@ class WasmRunner {
   }
 
   // handles stdin calls from wasmer
-  _wasmerStdinCallCounter = 0
   _onWasmerStdinCall(stdinBuffer, stdinProxy, stdoutProxy, stderrProxy) {
-    // second read means end of string
-    if (this._wasmerStdinCallCounter % 2 !== 0) {
-      this._wasmerStdinCallCounter++
-      return 0
-    }
-
     // use last line from output buffer as prompt caption
     const promptCaption = this.outputBuffer.split(/\r?\n/g).pop()
 
@@ -209,18 +199,16 @@ class WasmRunner {
     if (input == null) return 0
 
     // print input to terminal
-    stdoutProxy(input + "\r\n")
+    stdoutProxy(input)
+    if (!promptCaption) stdoutProxy("\r\n")
 
     // copy input value to stdinBuffer
-    Array.from(input).forEach(
+    Array.from(input + "\n").forEach(
       (char, i) => (stdinBuffer[i] = char.charCodeAt(0))
     )
 
-    // indicate we've read once
-    this._wasmerStdinCallCounter++
-
     // return how much to read
-    return input.length
+    return input.length + 1
   }
 }
 
