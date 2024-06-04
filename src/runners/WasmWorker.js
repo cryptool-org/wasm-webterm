@@ -65,12 +65,6 @@ class WasmWorker extends WasmRunner {
 
   // handles stdin calls from wasmer
   _onWasmerStdinCall(stdinBuffer, stdinProxy, stdoutProxy, stderrProxy) {
-    // second read means end of string
-    if (this._wasmerStdinCallCounter % 2 !== 0) {
-      this._wasmerStdinCallCounter++
-      return 0
-    }
-
     // read input (will set stdin buffer)
     stdinProxy(this.outputBuffer.split(/\r?\n/g).pop())
     this.pauseExecution() // resumes after input
@@ -81,9 +75,6 @@ class WasmWorker extends WasmRunner {
     this.outputBuffer += _stdinBuffer
       .map((c) => String.fromCharCode(c))
       .join("")
-
-    // indicate we've read once
-    this._wasmerStdinCallCounter++
 
     // return how much to read
     return _stdinBuffer.length
