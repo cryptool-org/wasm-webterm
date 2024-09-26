@@ -9,9 +9,9 @@
   "license": "Apache-2.0",
   "dependencies": {
     "wasm-webterm": "file:../..",
-    "xterm": "^5.0.0"
+    "xterm": "<=4.19.0"
   },
   "devDependencies": {
-    "parcel": "^2.8.0"
+    "parcel": "^2.12.0"
   }
 }

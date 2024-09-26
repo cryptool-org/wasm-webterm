@@ -9,7 +9,7 @@
   "license": "Apache-2.0",
   "dependencies": {
     "wasm-webterm": "file:../..",
-    "xterm": "^5.0.0"
+    "xterm": "<=4.19.0"
   },
   "devDependencies": {
     "http-server": "^14.1.1"
