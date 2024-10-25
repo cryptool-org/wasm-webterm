@@ -204,17 +204,29 @@ class WasmerRunnable {
 
   /* file handling */
 
-  _readFilesFromFS(wasmFs, directory = "/") {
-    const allFiles = wasmFs.volume.toJSON(directory)
-    const blacklist = ["/dev/stdin", "/dev/stdout", "/dev/stderr", "/dev/tty"]
-    const filtered = Object.entries(allFiles).filter(
-      ([filename, content]) => !blacklist.includes(filename)
-    )
-    return filtered.map(([filename, content]) => ({
-      name: filename,
-      timestamp: Date.now(),
-      bytes: new TextEncoder().encode(content),
-    }))
+  _readFilesFromFS(wasmFs, directory = "/", includeBinary = true) {
+    const rootLink = wasmFs.volume.getLinkAsDirOrThrow(directory)
+
+    const getFilesFromLink = (parentLink) => {
+      let files = []
+      Object.values(parentLink.children).forEach((link) => {
+        let linkPath = link.getPath()
+        let node = link.getNode()
+        if (node.isFile())
+          files.push({
+            name: linkPath,
+            timestamp: node.mtime.getTime(),
+            bytes: includeBinary
+              ? wasmFs.fs.readFileSync(linkPath)
+              : new Uint8Array(),
+          })
+        if (node.isDirectory()) files = [...files, ...getFilesFromLink(link)]
+      })
+      return files
+    }
+
+    let files = getFilesFromLink(rootLink)
+    return files
   }
 
   _writeFilesToFS(wasmFs, files = []) {
