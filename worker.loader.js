@@ -7,6 +7,21 @@ const path = require("path")
 const webpack = require("webpack")
 const memfs = require("memfs")
 
+function bytesToBase64DataUrl(bytes, type = "application/octet-stream") {
+  const buffer = Buffer.from(bytes)
+  const encoded = buffer.toString("base64")
+  return `data:${type};base64,${encoded}`
+}
+
+async function compress(bytes, method = "gzip") {
+  const blob = new Blob([bytes])
+  const stream = blob.stream().pipeThrough(new CompressionStream(method))
+  const response = new Response(stream, {
+    headers: { "Content-Type": `application/${method}` },
+  })
+  return response.bytes()
+}
+
 module.exports = function (source) {
   const inputFilename = "./src/runners/WasmWorker.js"
   const outputFilename = "worker.compiled.js"
@@ -36,7 +51,7 @@ module.exports = function (source) {
 
   return new Promise((resolve, reject) => {
     // compile webworker
-    compiler.run((error, stats) => {
+    compiler.run(async (error, stats) => {
       // exit on errors
       if (error != null) reject(error)
       if (stats?.hasErrors()) reject(stats.compilation.errors)
@@ -47,7 +62,16 @@ module.exports = function (source) {
           "/" + outputFilename,
           "utf-8"
         )
-        resolve(compiled)
+        const compressed = await compress(compiled, "gzip")
+        const encoded = bytesToBase64DataUrl(compressed, "application/gzip")
+        console.log(
+          "Worker size:",
+          Math.ceil((compiled.length / 1024) * 10) / 10,
+          "KiB,",
+          Math.ceil((encoded.length / 1024) * 10) / 10,
+          "KiB compressed"
+        )
+        resolve(encoded)
       } catch (e) {
         console.error("Errors while compiling with worker.loader.js")
       }

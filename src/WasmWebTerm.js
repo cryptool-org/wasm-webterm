@@ -748,7 +748,12 @@ class WasmWebTerm {
       ) // 1000 chars buffer
 
       // create blob including webworker and its dependencies
-      let blob = new Blob([WasmWorkerRAW], { type: "application/javascript" })
+      const response = await fetch(WasmWorkerRAW)
+      const stream = response.body.pipeThrough(new DecompressionStream("gzip"))
+      const decompressed = new Response(stream, {
+        headers: { "Content-Type": "application/javascript" },
+      })
+      const blob = await decompressed.blob()
 
       // init webworker from blob (no separate file)
       this._workerRAW = new Worker(URL.createObjectURL(blob))
