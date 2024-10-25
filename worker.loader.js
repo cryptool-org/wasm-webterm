@@ -37,6 +37,15 @@ module.exports = function (source) {
         name: "[name]",
       },
     },
+    optimization: {
+      moduleIds: "deterministic", // share deterministic ids with the main bundle
+    },
+    externals: {
+      // HACK: Do not bundle the `WasmRunner` module and its dependencies again.
+      //       Instead let the main thread forward it from its bundle when
+      //       instantiating the worker.
+      "./WasmRunner": "global WasmRunner",
+    },
     plugins: [
       new webpack.ProvidePlugin({
         Buffer: ["buffer", "Buffer"],
