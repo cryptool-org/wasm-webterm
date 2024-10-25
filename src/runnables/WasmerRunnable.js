@@ -236,6 +236,15 @@ class WasmerRunnable {
           const path = file.name.split("/").slice(0, -1).join("/")
           wasmFs.fs.mkdirSync(path, { recursive: true })
           wasmFs.fs.writeFileSync(file.name, file.bytes)
+
+          if (file.timestamp instanceof Date)
+            wasmFs.fs.utimesSync(file.name, file.timestamp, file.timestamp)
+          else if (typeof file.timestamp === "number")
+            wasmFs.fs.utimesSync(
+              file.name,
+              file.timestamp / 1000,
+              file.timestamp / 1000
+            )
         }
       } catch (e) {
         console.error(e.name + ": " + e.message)

@@ -174,13 +174,9 @@ class EmscrWasmRunnable {
 
   /* file handling */
 
-  _readFilesFromFS(
-    instance,
-    directory = "/",
-    includeBinary = true,
-    filesToIgnore = []
-  ) {
+  _readFilesFromFS(instance, directory = "/", includeBinary = true) {
     const path = instance.FS.lookupPath(directory)
+
     const getFilesFromNode = (parentNode) => {
       let files = []
       Object.values(parentNode.contents).forEach((node) => {
@@ -198,19 +194,24 @@ class EmscrWasmRunnable {
       })
       return files
     }
+
     let files = getFilesFromNode(path.node)
-    if (filesToIgnore.length > 0)
-      files = files.filter((file) => {
-        return filesToIgnore.some((ignofile) => ignofile.name != file.name)
-      })
     return files
   }
 
   _writeFilesToFS(instance, files = []) {
     files.forEach((file) => {
       try {
-        if (file.bytes instanceof Uint8Array)
+        if (file.bytes instanceof Uint8Array) {
           instance.FS.writeFile(file.name, file.bytes)
+
+          const timestamp =
+            file.timestamp instanceof Date
+              ? file.timestamp.getTime()
+              : file.timestamp
+          if (typeof timestamp === "number")
+            instance.FS.utime(file.name, timestamp, timestamp)
+        }
       } catch (e) {
         console.error(e.name + ": " + e.message)
       }
