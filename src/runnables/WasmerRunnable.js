@@ -2,6 +2,8 @@ import { WASI } from "@wasmer/wasi"
 import browserBindings from "@wasmer/wasi/lib/bindings/browser"
 import { WasmFs } from "@wasmer/wasmfs"
 
+const S_IFCHR = 8192 // magic constant from memFS
+
 class WasmerRunnable {
   /* method wrapper class for wasmer wasm modules.
     initializes memory filesystem and can execute wasm. */
@@ -102,6 +104,12 @@ class WasmerRunnable {
     const ttyFd = wasmFs.volume.openSync("/dev/tty", "w+")
     wasmFs.volume.fds[ttyFd].node.read = wasmFs.volume.fds[0].node.read
     wasmFs.volume.fds[ttyFd].node.write = wasmFs.volume.fds[1].node.write
+
+    // mark /dev/{stdin,stdout,stderr,tty} as character devices
+    wasmFs.volume.fds[0].node.setModeProperty(S_IFCHR)
+    wasmFs.volume.fds[1].node.setModeProperty(S_IFCHR)
+    wasmFs.volume.fds[2].node.setModeProperty(S_IFCHR)
+    wasmFs.volume.fds[ttyFd].node.setModeProperty(S_IFCHR)
 
     // create wasi runtime
     let wasi = new WASI({
