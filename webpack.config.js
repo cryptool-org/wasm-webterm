@@ -14,6 +14,9 @@ module.exports = {
     filename: "webterm.bundle.js",
     library: { type: "umd", name: "[name]" },
   },
+  optimization: {
+    moduleIds: "deterministic", // share deterministic ids with the worker bundle
+  },
   plugins: [
     new webpack.ProvidePlugin({
       Buffer: ["buffer", "Buffer"],

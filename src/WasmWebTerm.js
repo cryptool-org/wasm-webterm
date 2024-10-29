@@ -3,10 +3,14 @@ import { proxy, wrap } from "comlink"
 import { FitAddon } from "xterm-addon-fit"
 import XtermEchoAddon from "local-echo"
 import parse from "shell-quote/parse"
+import { inflate } from "pako" // fallback for DecompressionStream API (free as its used in WapmFetchUtil)
 
 import LineBuffer from "./LineBuffer"
 import WasmWorkerRAW from "./runners/WasmWorker" // will be prebuilt using webpack
-import { default as PromptsFallback } from "./runners/WasmRunner"
+import {
+  default as PromptsFallback,
+  MODULE_ID as WasmRunnerID, // get the id of this module in the final webpack bundle
+} from "./runners/WasmRunner"
 import WapmFetchUtil from "./WapmFetchUtil"
 
 class WasmWebTerm {
@@ -748,9 +752,71 @@ class WasmWebTerm {
       ) // 1000 chars buffer
 
       // create blob including webworker and its dependencies
-      let blob = new Blob([WasmWorkerRAW], { type: "application/javascript" })
+      const workerSource = fetch(WasmWorkerRAW).then((response) => {
+        if ("DecompressionStream" in self) {
+          const stream = response.body.pipeThrough(
+            new DecompressionStream("gzip")
+          )
+          const decompressed = new Response(stream)
+          return decompressed.text()
+        } else {
+          return response.bytes().then((data) => inflate(data))
+        }
+      })
 
-      // init webworker from blob (no separate file)
+      // HACK: Forward all modules for the `WasmRunner`(`PromptsFallback`) to the worker
+      //       instead of bundling them directly. This saves about 90 KiB by not serializing
+      //       these dependencies twice. This works fine, since we already use the identical
+      //       module already as a fallback.
+      const extraModules = {}
+      try {
+        const webpackModuleIds = Object.keys(__webpack_modules__)
+        let dependencies = [WasmRunnerID] // start with the `WasmRunner` module
+        for (
+          let dep = dependencies.shift();
+          dep != undefined;
+          dep = dependencies.shift()
+        ) {
+          // put the module into the list of modules to forward
+          const mod = __webpack_modules__[dep]
+          extraModules[dep] = mod
+
+          // parse module for imports of other module dependencies (like `r(MODULE_ID)`)
+          const matches = mod.toString().matchAll(/\br\((\d+)\)/g)
+          for (const match of matches) {
+            if (webpackModuleIds.includes(match[1])) dependencies.push(match[1])
+          }
+        }
+      } catch (err) {
+        // Could not collect the `WasmRunner` module and its dependencies for forwarding
+        console.error(
+          `Cannot collect the \`WasmRunner\` module and its dependencies for use in the Worker: ${err}`
+        )
+        console.error(
+          "Falling back to excuting `WasmRunner` in the PromptsFallback"
+        )
+
+        // -> use prompts as fallback
+        this._wasmRunner = new PromptsFallback()
+        this._worker = false
+        resolve(this._worker)
+
+        return
+      }
+
+      // prepend source of collected modules as well as the ID for the
+      // `WasmRunner` module to the original worker source
+      let prelude = "self._modules={"
+      for (const [id, module] of Object.entries(extraModules)) {
+        prelude += `${id}:${module.toString()},`
+      }
+      prelude += `};self.WasmRunnerID=${WasmRunnerID}\n`
+
+      const blob = new Blob([prelude, await workerSource], {
+        type: "application/javascript",
+      })
+
+      // init webworker from blob (no separate file, no cross-origin problems)
       this._workerRAW = new Worker(URL.createObjectURL(blob))
       const WasmWorker = wrap(this._workerRAW)
       this._worker = await new WasmWorker(this._pauseBuffer, this._stdinBuffer)

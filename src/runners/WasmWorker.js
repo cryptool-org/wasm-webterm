@@ -1,4 +1,7 @@
 import { expose } from "comlink"
+// HACK: make `WasmRunner` and its dependecies available from the injected modules by the
+//       main thread, instead of importing and bundling them directly.
+import "./ImportInjectedModules"
 import WasmRunner from "./WasmRunner"
 
 class WasmWorker extends WasmRunner {

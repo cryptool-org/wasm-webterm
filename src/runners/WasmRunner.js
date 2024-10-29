@@ -213,3 +213,4 @@ class WasmRunner {
 }
 
 export default WasmRunner
+export const MODULE_ID = __webpack_module__.id
