@@ -2,6 +2,8 @@ import { WASI } from "@wasmer/wasi"
 import browserBindings from "@wasmer/wasi/lib/bindings/browser"
 import { WasmFs } from "@wasmer/wasmfs"
 
+const S_IFCHR = 8192 // magic constant from memFS
+
 class WasmerRunnable {
   /* method wrapper class for wasmer wasm modules.
     initializes memory filesystem and can execute wasm. */
@@ -103,6 +105,12 @@ class WasmerRunnable {
     wasmFs.volume.fds[ttyFd].node.read = wasmFs.volume.fds[0].node.read
     wasmFs.volume.fds[ttyFd].node.write = wasmFs.volume.fds[1].node.write
 
+    // mark /dev/{stdin,stdout,stderr,tty} as character devices
+    wasmFs.volume.fds[0].node.setModeProperty(S_IFCHR)
+    wasmFs.volume.fds[1].node.setModeProperty(S_IFCHR)
+    wasmFs.volume.fds[2].node.setModeProperty(S_IFCHR)
+    wasmFs.volume.fds[ttyFd].node.setModeProperty(S_IFCHR)
+
     // create wasi runtime
     let wasi = new WASI({
       args: [this.programName, ...argv],
@@ -196,17 +204,29 @@ class WasmerRunnable {
 
   /* file handling */
 
-  _readFilesFromFS(wasmFs, directory = "/") {
-    const allFiles = wasmFs.volume.toJSON(directory)
-    const blacklist = ["/dev/stdin", "/dev/stdout", "/dev/stderr", "/dev/tty"]
-    const filtered = Object.entries(allFiles).filter(
-      ([filename, content]) => !blacklist.includes(filename)
-    )
-    return filtered.map(([filename, content]) => ({
-      name: filename,
-      timestamp: Date.now(),
-      bytes: new TextEncoder().encode(content),
-    }))
+  _readFilesFromFS(wasmFs, directory = "/", includeBinary = true) {
+    const rootLink = wasmFs.volume.getLinkAsDirOrThrow(directory)
+
+    const getFilesFromLink = (parentLink) => {
+      let files = []
+      Object.values(parentLink.children).forEach((link) => {
+        let linkPath = link.getPath()
+        let node = link.getNode()
+        if (node.isFile())
+          files.push({
+            name: linkPath,
+            timestamp: node.mtime.getTime(),
+            bytes: includeBinary
+              ? wasmFs.fs.readFileSync(linkPath)
+              : new Uint8Array(),
+          })
+        if (node.isDirectory()) files = [...files, ...getFilesFromLink(link)]
+      })
+      return files
+    }
+
+    let files = getFilesFromLink(rootLink)
+    return files
   }
 
   _writeFilesToFS(wasmFs, files = []) {
@@ -216,6 +236,15 @@ class WasmerRunnable {
           const path = file.name.split("/").slice(0, -1).join("/")
           wasmFs.fs.mkdirSync(path, { recursive: true })
           wasmFs.fs.writeFileSync(file.name, file.bytes)
+
+          if (file.timestamp instanceof Date)
+            wasmFs.fs.utimesSync(file.name, file.timestamp, file.timestamp)
+          else if (typeof file.timestamp === "number")
+            wasmFs.fs.utimesSync(
+              file.name,
+              file.timestamp / 1000,
+              file.timestamp / 1000
+            )
         }
       } catch (e) {
         console.error(e.name + ": " + e.message)
