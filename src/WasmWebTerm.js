@@ -100,7 +100,7 @@ class WasmWebTerm {
     // async to be able to fetch sth here
 
     // create xterm local echo addon
-    this._xtermEcho = new XtermEchoAddon()
+    this._xtermEcho = new XtermEchoAddon(null, { historySize: Number.MAX_SAFE_INTEGER })
     this._xtermEcho.activate(this._xterm)
 
     // register available js commands

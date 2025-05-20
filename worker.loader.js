@@ -19,7 +19,7 @@ async function compress(bytes, method = "gzip") {
   const response = new Response(stream, {
     headers: { "Content-Type": `application/${method}` },
   })
-  return response.bytes()
+  return response.arrayBuffer()
 }
 
 module.exports = function (source) {
@@ -82,7 +82,7 @@ module.exports = function (source) {
         )
         resolve(encoded)
       } catch (e) {
-        console.error("Errors while compiling with worker.loader.js")
+        console.error("Errors while compiling with worker.loader.js:", e)
       }
     })
   })
