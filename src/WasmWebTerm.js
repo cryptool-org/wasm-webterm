@@ -6,6 +6,7 @@ import parse from "shell-quote/parse"
 import { inflate } from "pako" // fallback for DecompressionStream API (free as its used in WapmFetchUtil)
 
 import LineBuffer from "./LineBuffer"
+import History from "./History"
 import WasmWorkerRAW from "./runners/WasmWorker" // will be prebuilt using webpack
 import {
   default as PromptsFallback,
@@ -100,8 +101,11 @@ class WasmWebTerm {
     // async to be able to fetch sth here
 
     // create xterm local echo addon
-    this._xtermEcho = new XtermEchoAddon(null, { historySize: Number.MAX_SAFE_INTEGER })
+    this._xtermEcho = new XtermEchoAddon(null, { historySize: 1000 })
     this._xtermEcho.activate(this._xterm)
+
+    // patch history controller
+    this._xtermEcho.history = new History(this._xtermEcho.history.size || 10)
 
     // register available js commands
     this.registerJsCommand("help", async function* (argv) {
