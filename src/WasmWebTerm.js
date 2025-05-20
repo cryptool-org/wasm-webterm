@@ -833,7 +833,7 @@ class WasmWebTerm {
 
   _terminateWorker() {
     console.log("called terminate worker")
-    this._workerRAW.terminate()
+    this._workerRAW?.terminate()
   }
 
   _waitForOutputPause(pauseDuration = 80, interval = 20) {
