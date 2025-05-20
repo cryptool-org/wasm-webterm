@@ -27,19 +27,19 @@
     "@wasmer/wasi": "^0.12.0",
     "@wasmer/wasm-transformer": "^0.12.0",
     "@wasmer/wasmfs": "^0.12.0",
-    "comlink": "^4.4.1",
+    "comlink": "^4.4.2",
     "js-untar": "^2.0.0",
     "local-echo": "github:wavesoft/local-echo",
     "pako": "^2.1.0",
-    "shell-quote": "^1.8.1",
+    "shell-quote": "^1.8.2",
     "xterm-addon-fit": "^0.5.0"
   },
   "devDependencies": {
-    "memfs": "^4.12.0",
-    "prettier": "^3.3.3",
+    "memfs": "^4.17.2",
+    "prettier": "^3.5.3",
     "process": "^0.11.10",
-    "webpack": "^5.95.0",
-    "webpack-cli": "^5.1.4"
+    "webpack": "^5.99.9",
+    "webpack-cli": "^6.0.1"
   },
   "peerDependencies": {
     "xterm": ">4.9.0 <=4.19.0"
