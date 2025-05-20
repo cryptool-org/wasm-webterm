@@ -915,8 +915,14 @@ class WasmWebTerm {
     })
   })
 
-  _stdoutProxy = proxy((value) => this._stdoutBuffer.write(value))
-  _stderrProxy = proxy((value) => this._stderrBuffer.write(value))
+  _stdoutProxy = proxy((value) => {
+    this._lastOutputTime = Date.now() // keep track of time
+    this._stdoutBuffer.write(value)
+  })
+  _stderrProxy = proxy((value) => {
+    this._lastOutputTime = Date.now() // keep track of time
+    this._stderrBuffer.write(value)
+  })
 
   /* input output handling -> term */
 
@@ -934,11 +940,8 @@ class WasmWebTerm {
     // avoid offsets with line breaks
     value = value.replace(/\n/g, "\r\n")
 
-    // buffer time for synchronity
-    this._outputBuffer += value
-    this._lastOutputTime = Date.now()
-
     // write to terminal
+    this._outputBuffer += value
     this._xterm.write(value)
   }
 
