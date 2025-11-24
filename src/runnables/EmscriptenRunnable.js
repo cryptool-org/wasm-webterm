@@ -56,7 +56,7 @@ class EmscrWasmRunnable {
         )
         return {}
       },
-      preInit: [
+      preRun: [
         () => {
           emscrModule.TTY.register(emscrModule.FS.makedev(5, 0), {
             get_char: (tty) => stdin(tty),

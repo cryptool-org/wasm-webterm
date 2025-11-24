@@ -14,6 +14,7 @@ module.exports = {
     filename: "webterm.bundle.js",
     library: { type: "umd", name: "[name]" },
   },
+  target: ["web", "es2015"],
   optimization: {
     moduleIds: "deterministic", // share deterministic ids with the worker bundle
   },
@@ -32,6 +33,20 @@ module.exports = {
         test: __dirname + "/src/runners/WasmWorker.js",
         use: [{ loader: "worker-loader" }],
         type: "asset/source",
+      },
+      {
+        test: /\.m?js$/,
+        include: [__dirname + "/src"],
+        exclude: /\bnode_modules\b/,
+        use: [
+          {
+            loader: "swc-loader",
+            options: {
+              minify: true,
+              jsc: { target: "es2015" },
+            },
+          },
+        ],
       },
     ],
   },
