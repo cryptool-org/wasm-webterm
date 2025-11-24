@@ -37,6 +37,7 @@ module.exports = function (source) {
         name: "[name]",
       },
     },
+    target: ["web", "es2015"],
     optimization: {
       moduleIds: "deterministic", // share deterministic ids with the main bundle
     },
@@ -52,6 +53,24 @@ module.exports = function (source) {
         process: "process/browser",
       }),
     ],
+    module: {
+      rules: [
+        {
+          test: /\.m?js$/,
+          include: [__dirname + "/src"],
+          exclude: /\bnode_modules\b/,
+          use: [
+            {
+              loader: "swc-loader",
+              options: {
+                minify: true,
+                jsc: { target: "es2015" },
+              },
+            },
+          ],
+        },
+      ],
+    },
   })
 
   // make compiler use memfs as *output* file system
