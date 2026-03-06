@@ -6,9 +6,7 @@
 const webpack = require("webpack")
 
 module.exports = {
-  entry: {
-    WasmWebTerm: "./src/WasmWebTerm.js",
-  },
+  entry: { WasmWebTerm: "./src/WasmWebTerm.js" },
   output: {
     path: __dirname + "/dist/",
     filename: "wasm-webterm.js",
@@ -41,10 +39,7 @@ module.exports = {
         use: [
           {
             loader: "swc-loader",
-            options: {
-              minify: true,
-              jsc: { target: "es2015" },
-            },
+            options: { minify: true, jsc: { target: "es2015" } },
           },
         ],
       },

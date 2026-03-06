@@ -32,10 +32,7 @@ module.exports = function (source) {
     output: {
       path: "/",
       filename: outputFilename,
-      library: {
-        type: "umd",
-        name: "[name]",
-      },
+      library: { type: "umd", name: "[name]" },
     },
     target: ["web", "es2015"],
     optimization: {
@@ -62,10 +59,7 @@ module.exports = function (source) {
           use: [
             {
               loader: "swc-loader",
-              options: {
-                minify: true,
-                jsc: { target: "es2015" },
-              },
+              options: { minify: true, jsc: { target: "es2015" } },
             },
           ],
         },
