@@ -1,6 +1,6 @@
 # Example: Run `wasm-webterm` directly in the browser with `http-server`
 
-This example does not use a bundler but includes xterm.js and the prebundled file `webterm.bundle.js` directly. It uses `http-server` as a static HTTP server. You could also use this example with Apache or Nginx etc.
+This example does not use a bundler but includes xterm.js and the prebundled file `wasm-webterm.js` directly. It uses `http-server` as a static HTTP server. You could also use this example with Apache or Nginx etc.
 
 Run the following commands **inside of this folder** to execute.
 
