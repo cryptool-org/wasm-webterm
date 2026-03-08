@@ -60,9 +60,7 @@ class WapmFetchUtil {
       body: JSON.stringify({
         operationName: "shellGetCommandQuery",
         query: WapmFetchUtil.WAPM_GRAPHQL_QUERY,
-        variables: {
-          command: commandName,
-        },
+        variables: { command: commandName },
       }),
     })
 
@@ -121,10 +119,7 @@ class WapmFetchUtil {
         Accept: "application/json",
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({
-        query,
-        variables,
-      }),
+      body: JSON.stringify({ query, variables }),
     })
 
     const response = await fetchResponse.json()

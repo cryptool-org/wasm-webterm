@@ -115,14 +115,8 @@ class WasmerRunnable {
     let wasi = new WASI({
       args: [this.programName, ...argv],
       env: {}, // todo: maybe use environment variables?
-      bindings: {
-        ...browserBindings,
-        fs: wasmFs.fs,
-      },
-      preopens: {
-        ".": ".",
-        "/": "/",
-      },
+      bindings: { ...browserBindings, fs: wasmFs.fs },
+      preopens: { ".": ".", "/": "/" },
     })
 
     // instantiate wasm module
