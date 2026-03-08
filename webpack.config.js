@@ -1,6 +1,6 @@
 /**
  * Webpack config to bundle WasmWebTerm
- * Generates the files "webterm.bundle.js" and "webterm.bundle.js.map"
+ * Generates the files "dist/wasm-webterm.js" and "dist/wasm-webterm.js.map"
  */
 
 const webpack = require("webpack")
@@ -10,8 +10,8 @@ module.exports = {
     WasmWebTerm: "./src/WasmWebTerm.js",
   },
   output: {
-    path: __dirname,
-    filename: "webterm.bundle.js",
+    path: __dirname + "/dist/",
+    filename: "wasm-webterm.js",
     library: { type: "umd", name: "[name]" },
   },
   target: ["web", "es2015"],

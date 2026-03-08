@@ -49,7 +49,7 @@ Choose the variant that works best for your existing setup:
 
 ### Variant 1: Load via plain JS `<script>` tag
 
-The first and most simple way is to include the prebundled [`webterm.bundle.js`](./webterm.bundle.js) into an HTML page using a `<script>` tag.
+The first and most simple way is to include the prebundled [`wasm-webterm.js`](./dist/wasm-webterm.js) into an HTML page using a `<script>` tag.
 
 Create an HTML file (let's say `index.html`) and open it in your browser. You could also use [example 1 in the examples folder](./examples/1-directly-in-the-browser).
 
@@ -58,7 +58,7 @@ Create an HTML file (let's say `index.html`) and open it in your browser. You co
     <head>
         <script src="node_modules/xterm/lib/xterm.js"></script>
         <link rel="stylesheet" href="node_modules/xterm/css/xterm.css"/>
-        <script src="node_modules/wasm-webterm/webterm.bundle.js"></script>
+        <script src="node_modules/wasm-webterm/dist/wasm-webterm.js"></script>
     </head>
     <body>
 

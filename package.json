@@ -3,12 +3,14 @@
   "version": "0.0.14",
   "description": "xterm.js addon to run webassembly binaries (emscripten + wasmer)",
   "files": [
-    "webterm.bundle.js",
-    "webterm.bundle.js.map"
+    "dist/"
   ],
-  "main": "webterm.bundle.js",
+  "main": "./dist/wasm-webterm.js",
+  "exports": {
+    ".": "./dist/wasm-webterm.js"
+  },
   "scripts": {
-    "build": "webpack --mode production && rm -rf ./*.LICENSE.*",
+    "build": "webpack --mode production && rm -rf dist/*.LICENSE.*",
     "dev": "webpack watch --mode development"
   },
   "keywords": [
