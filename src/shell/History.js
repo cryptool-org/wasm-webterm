@@ -35,6 +35,12 @@ export default class History {
     this.#cursor = this.#entries.length
   }
 
+  // move cursor to first entry and return it
+  getFirst() {
+    this.#cursor = 0
+    return this.#entries[this.#cursor]
+  }
+
   // move cursor to the previous entry and return it
   getPrevious() {
     this.#cursor = Math.max(0, this.#cursor - 1)

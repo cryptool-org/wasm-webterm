@@ -3,6 +3,9 @@ export function offsetToColRow(input, offset, maxCols) {
   let row = 0
   let col = 1
 
+  // strip out escape sequences
+  input = input.replace(/\x1b\[[^m]*?m/g, "")
+
   let lineStart = 0
   while (true) {
     // search for next line break
