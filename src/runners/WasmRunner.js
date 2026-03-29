@@ -149,6 +149,7 @@ class WasmRunner {
       )
     } else if (wasmModuleType == "wasmer") {
       // instantiate new wasmer runnable
+      console.log("wasm runner creates new wasmer runnable")
       let wasmerExe = new WasmerRunnable(programName, wasmModule)
 
       // run command on it

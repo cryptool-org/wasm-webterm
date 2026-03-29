@@ -158,7 +158,7 @@ class WasmerRunnable {
 
     // stdin is not needed
     const stdin = () => {
-      console.log("called runHeadless stdin")
+      console.warn("called runHeadless stdin")
       return 0
     }
 

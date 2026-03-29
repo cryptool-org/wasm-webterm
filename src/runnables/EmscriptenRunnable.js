@@ -136,9 +136,7 @@ class EmscrWasmRunnable {
     if (typeof onFinish != "function") onFinish = () => {}
 
     // stdin is not needed
-    const stdin = () => {
-      console.log("called runHeadless stdin")
-    }
+    const stdin = () => console.warn("called runHeadless stdin")
 
     // output is redirected into buffer
     let outputBuffer = "",
@@ -228,8 +226,6 @@ class EmscrWasmRunnable {
       // import js runtime
       let blob = new Blob([jsRuntime], { type: "application/javascript" })
       importScripts(URL.createObjectURL(blob))
-
-      console.log(jsRuntime, blob)
 
       // read emscripten Module from js runtime
       this.#emscrJsRuntime =
