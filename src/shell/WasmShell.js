@@ -1,5 +1,7 @@
 import parse from "shell-quote/parse"
 
+import { KeyboardInterruptError } from "../Errors"
+
 import { isIncompleteInput } from "./shell-utils"
 import WasmTTY from "./WasmTTY"
 import History from "./History"
@@ -19,6 +21,8 @@ class WasmShell {
   #tty
   #history
 
+  #execute
+
   prompt
 
   #activePrompt
@@ -26,7 +30,11 @@ class WasmShell {
   #inHistory
   #partialInput // input buffer before navigating history
 
-  constructor(options) {
+  constructor(executeFn, options) {
+    if (typeof executeFn !== "function")
+      throw new Error("`executeFn` parameter must be a function")
+    this.#execute = executeFn
+
     // create new command history
     this.#history = new History(options?.historySize ?? 1000)
 
@@ -84,23 +92,17 @@ class WasmShell {
         return
       }
 
-      // give user possibility to exec sth before run
-      //await this.onBeforeCommandRun()
+      // print extra newline before
+      this.#tty.write("\r\n")
 
-      // eval and print
-      this.#tty.println(`Execute command: \`${line}\``)
-      const commands = this._parseCommands(line)
-      this.#tty.println(`-> ${commands}`)
-      //await this.runLine(line)
-
-      // print extra newline if output does not end with one
-      //if (this._outputBuffer.slice(-1) !== "\n") this._xterm.write("\u23CE\r\n")
-
-      // print newline after
-      //this._xterm.write("\r\n")
-
-      // give user possibility to run sth after exec
-      //await this.onCommandRunFinish()
+      try {
+        // eval and print
+        const commands = this._parseCommands(line)
+        await this.#execute(commands)
+      } finally {
+        // print extra newline after
+        this.#tty.write("\r\n")
+      }
 
       // loop again
       setTimeout(() => this.repl())
@@ -109,9 +111,13 @@ class WasmShell {
       if (e === "disposed") return
 
       // print error message and run again
-      this.#tty.println(
-        `\x1b[1m[\x1b[31mWasmWebTerm\x1b[39m]\x1b[0m ${e.toString()}`
-      )
+      console.error("Error while executing commands:", e)
+      if (!(e instanceof KeyboardInterruptError)) {
+        this.#tty.println(
+          `\x1b[1m[\x1b[31mERROR\x1b[39m]\x1b[0m ${e.toString()}\n`
+        )
+      }
+
       setTimeout(() => this.repl())
     }
   }
@@ -119,6 +125,52 @@ class WasmShell {
   /** The default prompt */
   async _defaultPrompt() {
     return ["$ ", "> "]
+  }
+
+  /** Read line-buffered input from the terminal */
+  async readLine(message) {
+    return new Promise((resolve) => {
+      // read input until RETURN (LF), CTRL+D (EOF), or CTRL+C
+      let buffer = ""
+      const handler = this.#tty.onData((data) => {
+        // CTRL + C -> return without data
+        if (data === "\x03") {
+          this.#tty.write("^C")
+          handler.dispose()
+          return resolve("")
+        }
+
+        // CTRL + D -> return input buffer
+        else if (data === "\x04") {
+          handler.dispose()
+          return resolve(buffer)
+        }
+
+        // map return to '\n'
+        if (data === "\r") data = "\n"
+        // map backspace to CTRL+H
+        else if (data === "\x7f") data = "\x08"
+
+        // add character or delete last one
+        if (data === "\x08") buffer = buffer.slice(0, -1)
+        else buffer += data
+
+        // line complete -> return the input buffer
+        if (data === "\n") {
+          // only echo the linebreak when there is no prompt (i.e. we assume multi-line input)
+          if (!message) this.#tty.write("\r\n")
+
+          handler.dispose()
+          return resolve(buffer)
+        }
+
+        // echo input back (special handling for backspace and escape sequences)
+        if (data === "\x08") this.#tty.write("^H")
+        else if (data.charCodeAt(0) === 0x1b)
+          this.#tty.write("^[" + data.slice(1))
+        else this.#tty.write(data)
+      })
+    })
   }
 
   /* ======== COMMAND EXECUTION ======== */
@@ -184,14 +236,14 @@ class WasmShell {
     commands.push(cmd)
 
     if (usesEnvironmentVars) {
-      //this._stderr(
-      //  "\x1b[1m[\x1b[33mWARN\x1b[39m]\x1b[0m Environment variables are not supported!\n"
-      //)
+      this.#tty.println(
+        "\x1b[1m[\x1b[33mWARN\x1b[39m]\x1b[0m Environment variables are not supported!\n"
+      )
     }
     if (usesBashFeatures) {
-      //this._stderr(
-      //  "\x1b[1m[\x1b[33mWARN\x1b[39m]\x1b[0m Advanced bash features are not supported! Only the pipe '|' works for now.\n"
-      //)
+      this.#tty.println(
+        "\x1b[1m[\x1b[33mWARN\x1b[39m]\x1b[0m Advanced bash features are not supported! Only the pipe '|' works for now.\n"
+      )
     }
 
     return commands

@@ -38,6 +38,10 @@ class WasmTTY {
 
   dispose() {}
 
+  onData(fn) {
+    return this.#xterm.onData(fn)
+  }
+
   /** Generate a deconstructed readPromise */
   _getAsyncRead() {
     let readResolve
@@ -72,6 +76,11 @@ class WasmTTY {
   }
 
   /* ======== OUTPUT HANDLING ======== */
+
+  /** Write raw bytes to the terminal */
+  write(bytes) {
+    this.#xterm.write(bytes)
+  }
 
   /** Print a message to the terminal */
   print(message) {

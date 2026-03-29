@@ -20,7 +20,10 @@ export default class History {
     if (entry.trim() === "") return
     // skip duplicate entries
     const last = this.#entries[this.#entries.length - 1]
-    if (entry === last) return
+    if (entry === last) {
+      this.#cursor = this.#entries.length
+      return
+    }
 
     this.#entries.push(entry)
     if (this.#entries.length > this.size) {
