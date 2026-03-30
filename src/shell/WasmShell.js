@@ -1,6 +1,5 @@
-import parse from "shell-quote/parse"
-
-import { KeyboardInterruptError } from "../Errors"
+import { KeyboardInterruptError, CommandParserError } from "../Errors"
+import { parseCommands } from "./shell-utils"
 
 import { isIncompleteInput } from "./shell-utils"
 import WasmTTY from "./WasmTTY"
@@ -84,25 +83,16 @@ class WasmShell {
       }
       this.#isActive = true
 
-      let line = await this.#activePrompt.promise
+      const line = (await this.#activePrompt.promise).trim()
 
       // empty input -> prompt again
-      if (line.trim() === "") {
+      if (line === "") {
         setTimeout(() => this.repl())
         return
       }
 
-      // print extra newline before
-      this.#tty.write("\r\n")
-
-      try {
-        // eval and print
-        const commands = this._parseCommands(line)
-        await this.#execute(commands)
-      } finally {
-        // print extra newline after
-        this.#tty.write("\r\n")
-      }
+      // eval
+      await this._evalLine(line)
 
       // loop again
       setTimeout(() => this.repl())
@@ -110,14 +100,7 @@ class WasmShell {
       // break loop when disposed
       if (e === "disposed") return
 
-      // print error message and run again
-      console.error("Error while executing commands:", e)
-      if (!(e instanceof KeyboardInterruptError)) {
-        this.#tty.println(
-          `\x1b[1m[\x1b[31mERROR\x1b[39m]\x1b[0m ${e.toString()}\n`
-        )
-      }
-
+      // loop again
       setTimeout(() => this.repl())
     }
   }
@@ -192,61 +175,28 @@ class WasmShell {
     this.#isActive = false
   }
 
-  /** parse line as commands */
-  _parseCommands(line) {
-    let usesEnvironmentVars = false
-    let usesBashFeatures = false
+  async _evalLine(line) {
+    try {
+      // print extra newline before
+      this.#tty.write("\r\n")
 
-    // parse line into tokens (respect escaped spaces and quotation marks)
-    const commandLine = parse(line, (_key) => {
-      usesEnvironmentVars = true
-      return undefined
-    })
-
-    const commands = []
-    let cmd = []
-
-    splitter: {
-      for (let idx = 0; idx < commandLine.length; ++idx) {
-        const item = commandLine[idx]
-
-        if (typeof item === "string") {
-          // normal word
-          if (cmd.length === 0 && item.match(/^\w+=.*$/)) {
-            usesEnvironmentVars = true
-            continue
-          } else {
-            cmd.push(item)
-          }
-        } else {
-          // shell operator
-          switch (item.op) {
-            case "|":
-              commands.push(cmd)
-              cmd = []
-              break
-            default:
-              usesBashFeatures = true
-              console.error("Unsupported shell operator:", item.op)
-              break splitter
-          }
-        }
+      try {
+        // eval and print
+        const commands = parseCommands(line, this.#tty.println.bind(this.#tty))
+        await this.#execute(commands)
+      } finally {
+        // print extra newline after
+        this.#tty.write("\r\n")
+      }
+    } catch (e) {
+      // print error message and run again
+      console.error("Error while executing commands:", e)
+      if (!(e instanceof KeyboardInterruptError)) {
+        this.#tty.println(
+          `\x1b[1m[\x1b[31mERROR\x1b[39m]\x1b[0m ${e.toString()}\n`
+        )
       }
     }
-    commands.push(cmd)
-
-    if (usesEnvironmentVars) {
-      this.#tty.println(
-        "\x1b[1m[\x1b[33mWARN\x1b[39m]\x1b[0m Environment variables are not supported!\n"
-      )
-    }
-    if (usesBashFeatures) {
-      this.#tty.println(
-        "\x1b[1m[\x1b[33mWARN\x1b[39m]\x1b[0m Advanced bash features are not supported! Only the pipe '|' works for now.\n"
-      )
-    }
-
-    return commands
   }
 
   /* ======== INPUT HANDLING ======== */

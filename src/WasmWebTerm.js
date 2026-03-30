@@ -12,6 +12,7 @@ import {
 import WapmFetchUtil from "./WapmFetchUtil"
 
 import { CommandNotFoundError, KeyboardInterruptError } from "./Errors"
+import Command from "./Command"
 import WasmShell from "./shell/WasmShell"
 
 class WasmWebTerm {
@@ -176,11 +177,11 @@ class WasmWebTerm {
       let stdinPreset = null
       this._suppressOutputs = false
 
-      for (const [index, argv] of commands.entries()) {
+      for (const [index, command] of commands.entries()) {
         const isLast = index === commands.length - 1
 
         // split into command name and argv
-        const commandName = argv.shift()
+        const { name: commandName, argv, stdout, stderr } = command
 
         // try user registered js commands first
         try {
@@ -193,15 +194,19 @@ class WasmWebTerm {
           if (!(e instanceof CommandNotFoundError)) throw e
 
           // otherwise try wasm commands
-          if (!isLast) {
+          if (stdout === Command.PIPE || stderr === Command.PIPE) {
+            // capture command output
             const output = await this.runWasmCommandHeadless(
               commandName,
               argv,
               stdinPreset
             )
-            stdinPreset = output.stdout // apply last stdout to next stdin
+            if (stdout === Command.PIPE && stderr === Command.PIPE)
+              stdinPreset = output.output
+            else if (stdout === Command.PIPE) stdinPreset = output.stdout
+            else if (stderr === Command.PIPE) stdinPreset = output.stderr
           } else {
-            // is last command -> run normally
+            // don't capture output
             await this.runWasmCommand(commandName, argv, stdinPreset)
           }
         }

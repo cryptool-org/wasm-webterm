@@ -23,3 +23,16 @@ export class KeyboardInterruptError extends Error {
     this.name = "KeyboardInterruptError"
   }
 }
+
+export class CommandParserError extends Error {
+  constructor(...params) {
+    super(...params)
+
+    // Maintains proper stack trace for where our error was thrown (non-standard)
+    if (Error.captureStackTrace) {
+      Error.captureStackTrace(this, CommandParserError)
+    }
+
+    this.name = "CommandParserError"
+  }
+}
