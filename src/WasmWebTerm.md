@@ -18,7 +18,7 @@ let term = new Terminal()
 let wasmterm = new WasmWebTerm()
 
 wasmterm.printWelcomeMessage = () => "Hello world shell \r\n"
-wasmterm._xtermPrompt = () => "custom> "
+wasmterm._prompt = () => "custom> "
 
 term.loadAddon(wasmterm)
 term.open(document.getElementById("terminal"))
@@ -37,9 +37,6 @@ wasmterm.runWasmCommand("cowsay", ["hi"])
 
 
 ### Public Methods
-
-* #### async `repl()`
-  Starts a [Read Eval Print Loop](https://en.wikipedia.org/wiki/Read–eval–print_loop). It reads a line from the terminal, calls `onBeforeCommandRun()`, calls `runLine(line)` (which evaluates the line and runs the contained command), calls `onCommandRunFinish()`, and then recursively calls itself again (loop).
 
 * #### async `runLine(line)`
   Gets a string (line), splits it into single commands (separated by `|`), and iterates over them. It then checks, if there is a JS function defined in [`_jsCommands`](#_jscommands) with the given command name. If there is, it'll execute it. See [defining custom JS commands](#defining-custom-js-commands) for more details. Otherwise, it will interpret the command name as the name of a WebAssembly binary and delegate to `runWasmCommand(..)` and `runWasmCommandHeadless(..)`.
@@ -95,12 +92,8 @@ The following methods are called on specific events. You can overwrite them to c
 * #### `_xterm`
   The local instance of xterm.js `Terminal` which the addon is attached to.
 
-* #### `_xtermEcho`
-  The local instance of `local-echo`, which provides the possibility to read from the Terminal.
-  > It also makes sense to look at the underlying [local-echo](https://github.com/wavesoft/local-echo). For example, its API offers the possibility to `.abortRead(reason)`, which exits the REPL.
-
-* #### `_xtermPrompt`
-  An async function that returns what is shown as prompt in the Terminal. Default is `$`.
+* #### `_prompt`
+  An async function that returns what is shown as prompt in the Terminal. Default is `$ `.
 
 * #### `_jsCommands`
   ES6 [`Map()`](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Map) containing JS commands in the form of `["command" => function(argv, stdin)]` (simplified). There is a getter called [`jsCommands`](#jscommands), so you don't need the underscore. This can be mutated by using [`registerJsCommand(..)`](#registerjscommandname-callback-autocomplete) and [`unregisterJsCommand(..)`]((#unregisterjscommand)).
@@ -169,7 +162,7 @@ The following methods are called on specific events. You can overwrite them to c
   Sets the value of `_stdinBuffer` to a given string, which can then be read from the Worker.
 
 * #### `_stdinProxy(message)`
-  Comlink Proxy which will be passed to the Worker thread. It will be called when the wasm binary reads from `/dev/stdin` or `/dev/tty`. It then reads a line from the xterm.js Terminal by using `local-echo`, sets the `_stdinBuffer` accordingly, and resumes the Worker.
+  Comlink Proxy which will be passed to the Worker thread. It will be called when the wasm binary reads from `/dev/stdin` or `/dev/tty`. It then reads a line from the xterm.js Terminal, sets the `_stdinBuffer` accordingly, and resumes the Worker.
 
 * #### `_stdoutProxy(value)` and `_stderrProxy(value)`
   Comlink proxies that map to `_stdout(value)` and `_stderr(value)`. They're proxies so that we can pass them to the Worker. But they can also be called directly, so we can also pass them to the `WasmRunner` Prompts fallback.

@@ -27,6 +27,7 @@ class WasmWebTerm {
 
   _xterm
   _shell
+  _prompt
 
   _worker
   _wasmRunner // prompts fallback
@@ -102,6 +103,8 @@ class WasmWebTerm {
 
     // initialize shell interface
     this._shell = new WasmShell(this.runCommands.bind(this))
+    if (typeof this._prompt === "function") this._shell.prompt = this._prompt
+    else if (this._prompt != null) this._shell.prompt = () => this._prompt
     this._shell.activate(xterm)
 
     // register available js commands
@@ -166,6 +169,10 @@ class WasmWebTerm {
 
   get jsCommands() {
     return this._jsCommands
+  }
+
+  async runLine(input) {
+    return await this._shell.injectCommand(input)
   }
 
   /* execute list of commands */

@@ -105,6 +105,31 @@ class WasmShell {
     }
   }
 
+  /** Evaluate a single line of input (drop any existing input) */
+  async injectCommand(input) {
+    if (typeof input !== "string")
+      throw new TypeError("can only execute strings")
+    if (input.trim() === "") return
+
+    let restartRepl = false
+
+    // stop any pending prompt
+    if (this.#activePrompt?.reject) {
+      this.#activePrompt.reject("disposed")
+      this.#activePrompt = undefined
+      restartRepl = true
+    }
+
+    // set prompt
+    this.#tty.input = input
+    this._handleReadComplete()
+    // evaluate input line
+    await this._evalLine(this.#tty.input)
+
+    // restart repl if we stopped it
+    if (restartRepl) setTimeout(() => this.repl())
+  }
+
   /** The default prompt */
   async _defaultPrompt() {
     return ["$ ", "> "]
