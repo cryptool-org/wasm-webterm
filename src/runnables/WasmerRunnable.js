@@ -78,6 +78,8 @@ class WasmerRunnable {
       }
     }
 
+    const decoder = new TextDecoder("utf-8")
+
     // set /dev/stdout to stdout function
     wasmFs.volume.fds[1].node.write = (
       stdoutBuffer,
@@ -85,7 +87,7 @@ class WasmerRunnable {
       length,
       position
     ) => {
-      stdout(new TextDecoder("utf-8").decode(stdoutBuffer))
+      stdout(decoder.decode(stdoutBuffer))
       return stdoutBuffer.length
     }
 
@@ -96,7 +98,7 @@ class WasmerRunnable {
       length,
       position
     ) => {
-      stderr(new TextDecoder("utf-8").decode(stderrBuffer))
+      stderr(decoder.decode(stderrBuffer))
       return stderrBuffer.length
     }
 
@@ -144,6 +146,8 @@ class WasmerRunnable {
         } catch (e) {
           onError(e.message)
         } finally {
+          stdout("", true)
+          stderr("", true)
           onFinish(filesPostRun || files)
         }
       }

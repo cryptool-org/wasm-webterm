@@ -36,6 +36,8 @@ class WasmWebTerm {
 
   _stdoutBuffer
   _stderrBuffer
+  _stdoutClosed
+  _stderrClosed
 
   _outputBuffer
   _lastOutputTime
@@ -52,6 +54,9 @@ class WasmWebTerm {
 
     this._outputBuffer = "" // buffers outputs to determine if it ended with line break
     this._lastOutputTime = 0 // can be used for guessing if output is complete on stdin calls
+
+    this._stdoutClosed = false
+    this._stderrClosed = false
 
     this.onActivated = () => {} // can be overwritten to know when activation is complete
     this.onDisposed = () => {} // can be overwritten to know when disposition is complete
@@ -272,6 +277,8 @@ class WasmWebTerm {
     // enable outputs if they were suppressed
     this._suppressOutputs = false
     this._outputBuffer = ""
+    this._stdoutClosed = false
+    this._stderrClosed = false
 
     // define callback for when command has finished
     const onFinish = proxy(async (files) => {
@@ -283,7 +290,7 @@ class WasmWebTerm {
       await this.onFileSystemUpdate(this._wasmFsFiles)
 
       // wait until outputs are rendered
-      await this._waitForOutputPause()
+      await this._waitForOutputClose()
 
       // flush out any pending outputs
       this._stdoutBuffer.flush()
@@ -740,6 +747,25 @@ class WasmWebTerm {
     })
   }
 
+  _waitForOutputClose(interval = 20, timeout = 1000) {
+    // note: additional timeout to wait for the last call to the output buffers
+    // which should be blocking until everything has been output.
+    const start = Date.now()
+    return new Promise((resolve) => {
+      const wait = () => {
+        setTimeout(() => {
+          // if both buffers are closed -> resolve
+          if (this._stdoutClosed && this._stderrClosed) resolve()
+          // if wasn't closed in timeout -> resolve anyway
+          else if (start + timeout < Date.now()) resolve()
+          // -> wait until closed or timeout
+          else wait()
+        }, interval)
+      }
+      wait()
+    })
+  }
+
   /* input output handling -> web worker */
 
   _setStdinBuffer(string) {
@@ -762,12 +788,14 @@ class WasmWebTerm {
     })
   })
 
-  _stdoutProxy = proxy((value) => {
+  _stdoutProxy = proxy((value, close = false) => {
     this._lastOutputTime = Date.now() // keep track of time
+    if (close) this._stdoutClosed = true
     this._stdoutBuffer.write(value)
   })
-  _stderrProxy = proxy((value) => {
+  _stderrProxy = proxy((value, close = false) => {
     this._lastOutputTime = Date.now() // keep track of time
+    if (close) this._stderrClosed = true
     this._stderrBuffer.write(value)
   })
 
@@ -777,8 +805,6 @@ class WasmWebTerm {
   _stderrBuffer = new LineBuffer(this._stderr.bind(this))
 
   _stdout(value) {
-    // string or char code
-
     if (this._suppressOutputs) return // used for Ctrl+C
 
     // numbers are interpreted as char codes -> convert to string
@@ -849,6 +875,8 @@ class WasmWebTerm {
     if (data === "\x03") {
       if (this._worker) {
         this._suppressOutputs = true
+        this._stdoutClosed = true
+        this._stderrClosed = true
         this._terminateWorker()
         this._initWorker() // reinit
         this._runWasmCommandPromise?.reject(new KeyboardInterruptError())

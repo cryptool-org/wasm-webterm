@@ -40,13 +40,13 @@ class WasmRunner {
       this.outputBuffer +=
         typeof value == "number" ? String.fromCharCode(value) : value
     }
-    const stdoutHandler = (value) => {
+    const stdoutHandler = (value, close) => {
       bufferOutputs(value)
-      return stdoutProxy(value)
+      return stdoutProxy(value, close)
     }
-    const stderrHandler = (value) => {
+    const stderrHandler = (value, close) => {
       bufferOutputs(value)
-      return stderrProxy(value)
+      return stderrProxy(value, close)
     }
 
     if (wasmModuleType == "emscripten") {
