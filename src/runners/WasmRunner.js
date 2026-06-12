@@ -40,13 +40,13 @@ class WasmRunner {
       this.outputBuffer +=
         typeof value == "number" ? String.fromCharCode(value) : value
     }
-    const stdoutHandler = (value) => {
+    const stdoutHandler = (value, close) => {
       bufferOutputs(value)
-      return stdoutProxy(value)
+      return stdoutProxy(value, close)
     }
-    const stderrHandler = (value) => {
+    const stderrHandler = (value, close) => {
       bufferOutputs(value)
-      return stderrProxy(value)
+      return stderrProxy(value, close)
     }
 
     if (wasmModuleType == "emscripten") {
@@ -149,6 +149,7 @@ class WasmRunner {
       )
     } else if (wasmModuleType == "wasmer") {
       // instantiate new wasmer runnable
+      console.log("wasm runner creates new wasmer runnable")
       let wasmerExe = new WasmerRunnable(programName, wasmModule)
 
       // run command on it

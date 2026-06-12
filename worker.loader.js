@@ -28,6 +28,7 @@ module.exports = function (source) {
 
   // create webpack compiler
   let compiler = webpack({
+    mode: "production",
     entry: inputFilename,
     output: {
       path: "/",

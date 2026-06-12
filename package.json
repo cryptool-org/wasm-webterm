@@ -11,7 +11,7 @@
   },
   "scripts": {
     "build": "webpack --mode production && rm -rf dist/*.LICENSE.*",
-    "dev": "webpack watch --mode development"
+    "dev": "webpack watch --mode production"
   },
   "keywords": [
     "xterm.js",

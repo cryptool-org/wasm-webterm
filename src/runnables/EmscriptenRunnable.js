@@ -65,10 +65,7 @@ class EmscrWasmRunnable {
               stdout(val)
             },
             flush: (tty) => (tty.output = []),
-            fsync: (tty) =>
-              console.log(
-                "fsynced stdout (EmscriptenRunnable does nothing in this case)"
-              ),
+            fsync: (_tty) => /* NOOP */ undefined,
           })
           emscrModule.TTY.register(emscrModule.FS.makedev(6, 0), {
             get_char: (tty) => stdin(tty),
@@ -77,10 +74,7 @@ class EmscrWasmRunnable {
               stderr(val)
             },
             flush: (tty) => (tty.output = []),
-            fsync: (tty) =>
-              console.log(
-                "fsynced stderr (EmscriptenRunnable does nothing in this case)"
-              ),
+            fsync: (_tty) => /* NOOP */ undefined,
           })
         },
       ],
@@ -100,11 +94,11 @@ class EmscrWasmRunnable {
       }
     }
 
-    let filesPostRun // instantiate emscripten module and call main
-    this.#emscrJsRuntime(emscrModule)
-      .then((instance) => {
-        // emscr module instance
-
+    // instantiate emscripten module and call main
+    this.#emscrJsRuntime(emscrModule).then((instance) => {
+      // emscr module instance
+      let filesPostRun
+      try {
         // write submitted files to wasm
         this._writeFilesToFS(instance, files)
 
@@ -116,10 +110,14 @@ class EmscrWasmRunnable {
 
         // success callback
         onSuccess(filesPostRun)
-      })
-
-      .catch((error) => onError(error))
-      .finally(() => onFinish(filesPostRun || files))
+      } catch (e) {
+        onError(e.message)
+      } finally {
+        stdout("", true)
+        stderr("", true)
+        onFinish(filesPostRun || files)
+      }
+    })
   }
 
   /**
@@ -136,9 +134,7 @@ class EmscrWasmRunnable {
     if (typeof onFinish != "function") onFinish = () => {}
 
     // stdin is not needed
-    const stdin = () => {
-      console.log("called runHeadless stdin")
-    }
+    const stdin = () => console.warn("called runHeadless stdin")
 
     // output is redirected into buffer
     let outputBuffer = "",
@@ -228,8 +224,6 @@ class EmscrWasmRunnable {
       // import js runtime
       let blob = new Blob([jsRuntime], { type: "application/javascript" })
       importScripts(URL.createObjectURL(blob))
-
-      console.log(jsRuntime, blob)
 
       // read emscripten Module from js runtime
       this.#emscrJsRuntime =

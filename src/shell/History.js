@@ -20,7 +20,10 @@ export default class History {
     if (entry.trim() === "") return
     // skip duplicate entries
     const last = this.#entries[this.#entries.length - 1]
-    if (entry === last) return
+    if (entry === last) {
+      this.#cursor = this.#entries.length
+      return
+    }
 
     this.#entries.push(entry)
     if (this.#entries.length > this.size) {
@@ -33,6 +36,12 @@ export default class History {
   // rewind cursor to the latest entry
   rewind() {
     this.#cursor = this.#entries.length
+  }
+
+  // move cursor to first entry and return it
+  getFirst() {
+    this.#cursor = 0
+    return this.#entries[this.#cursor]
   }
 
   // move cursor to the previous entry and return it
