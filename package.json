@@ -33,17 +33,17 @@
     "js-untar": "^2.0.0",
     "local-echo": "github:wavesoft/local-echo",
     "pako": "^2.1.0",
-    "shell-quote": "^1.8.3",
+    "shell-quote": "^1.8.4",
     "xterm-addon-fit": "^0.5.0"
   },
   "devDependencies": {
-    "@swc/core": "^1.15.18",
-    "memfs": "^4.56.11",
-    "prettier": "^3.8.1",
+    "@swc/core": "^1.15.41",
+    "memfs": "^4.57.7",
+    "prettier": "^3.8.4",
     "process": "^0.11.10",
     "swc-loader": "^0.2.7",
-    "webpack": "^5.105.4",
-    "webpack-cli": "^6.0.1"
+    "webpack": "^5.107.2",
+    "webpack-cli": "^7.0.3"
   },
   "peerDependencies": {
     "xterm": ">4.9.0 <=4.19.0"
